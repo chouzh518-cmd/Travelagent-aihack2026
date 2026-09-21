@@ -1,78 +1,174 @@
 <!doctype html>
 <html lang="ja">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f5f2ea"><title>旅程 | 出張ワークスペース</title><link rel="stylesheet" href="/static/app.css"><script src="/static/app.js" defer></script></head>
-<body>
-<div id="access-gate" class="access-gate" hidden><form id="access-form" class="access-card"><span class="eyebrow">チームアクセス</span><h1>チーム資料ライブラリ</h1><p>管理者から案内されたアクセスコードを入力してください。</p><label for="access-password">アクセスコード</label><input id="access-password" type="password" autocomplete="current-password" required><p id="access-error" class="issue" hidden></p><button class="primary" type="submit">ライブラリを開く →</button></form></div>
-<aside class="sidebar">
-  <a class="brand" href="/" aria-label="旅程 ホーム"><span class="brand-mark">↗</span><span>旅程<small>出張管理</small></span></a>
-  <div class="side-label">出張アシスタント</div>
-  <nav aria-label="作業メニュー">
-    <button data-tab="agent" class="nav active" aria-current="page"><span>01</span>AI相談<span class="nav-arrow">↗</span></button>
-    <button data-tab="policies" class="nav"><span>02</span>資料ライブラリ</button>
-    <button data-tab="trip" class="nav"><span>03</span>出張を申請</button>
-    <button data-tab="plans" class="nav"><span>04</span>料金を比較</button>
-    <button data-tab="mail" class="nav"><span>05</span>承認メール</button>
-  </nav>
-</aside>
-<main>
-  <header><span id="breadcrumb">資料ライブラリ</span><span id="connection-status" class="connection-status" data-state="loading"><i></i><span>資料ライブラリに接続中</span></span></header>
-  <div id="message" class="message" role="status" aria-live="polite" hidden></div>
-  <section id="agent" class="page">
-    <div class="page-heading agent-heading"><div class="eyebrow">出張計画アシスタント</div><h1>資料と希望から、出張プランを提案。</h1><p>社内規程や参考資料を登録し、出張の目的、日程、希望を入力してください。回答には資料の原文を引用します。最新の料金や運行情報を確認できない場合は、要確認として表示します。</p></div>
-    <div class="chat-layout">
-      <section class="paper chat-card" aria-label="出張計画アシスタントとの会話">
-        <div class="chat-topline"><span class="agent-mark">旅</span><div><strong>旅程 AIアシスタント</strong><small id="agent-status">モデルと資料ライブラリを確認中…</small></div><button id="new-chat" class="text-button" type="button">新しい会話</button></div>
-        <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions text">
-          <article class="chat-message assistant-message"><span class="message-author">旅程 AI</span><p>こんにちは。まず出張規程、予算資料、行程の参考資料を登録してください。続けて出発地、目的地、日程、出張目的、希望を入力すると、根拠となる資料を示しながら提案します。</p><p class="help">例：「登録済みの出張規程に基づき、来週の東京発・大阪一泊二日の顧客訪問プランを作成してください。予算上限も確認してください。」</p></article>
-        </div>
-        <div id="chat-upload-state" class="chat-upload-state" role="status" hidden></div>
-        <form id="chat-form" class="chat-composer">
-          <label class="attach-button" for="chat-file">＋ 資料を追加<input id="chat-file" type="file" accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/tiff,image/bmp,image/webp,.pdf,.docx,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp"></label>
-          <label class="visually-hidden" for="chat-input">出張の希望または質問</label>
-          <textarea id="chat-input" rows="3" maxlength="4000" placeholder="出張の予定や規程について入力してください……" required></textarea>
-          <div class="composer-footer"><span class="help">Enter で送信 · Shift + Enter で改行</span><div><button id="export-proposal" class="secondary" type="button" disabled>提案書を出力</button><button id="send-chat" class="primary" type="submit">送信 ↗</button></div></div>
-        </form>
-      </section>
-      <aside class="paper chat-library"><div class="section-heading"><h2>今回利用できる資料</h2><span id="chat-source-count">0 件</span></div><p class="help">読み取りとライブラリへの登録が完了した資料を会話に利用します。</p><div id="chat-sources" class="chat-sources"><p class="empty-source">資料がありません。PDF または画像を追加してください。</p></div><button class="text-button library-link" type="button" data-tab="policies">すべての資料を管理 →</button><div class="plan-note"><span class="note-mark">i</span><p>提案に含まれる規程の説明は登録済み資料に基づきます。最新の交通情報、宿泊料金、予約状況は正式な見積りで確認してください。</p></div></aside>
-    </div>
-  </section>
-  <section id="policies" class="page" hidden>
-    <div class="hero"><div><div class="eyebrow">規程ライブラリ</div><h1>規程資料を、<br>ここで管理する。</h1><p>資料を追加・削除できます。<br>出張申請では登録資料をバックエンドで利用します。</p></div><div class="hero-stamp"><span>資料を管理</span><strong>規</strong><span>出張申請に活用</span></div></div>
-    <section class="paper upload-panel" aria-labelledby="upload-title"><div class="section-heading"><div><span class="eyebrow">資料を追加</span><h2 id="upload-title">規程資料を追加</h2></div></div><p>追加した資料はローカルのベクトルライブラリに登録し、出張申請の処理中にバックエンドで利用します。</p><form id="source-upload"><label for="source-file">PDF、DOCX または画像ファイル</label><div class="upload-row"><input id="source-file" type="file" accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/tiff,image/bmp,image/webp,.pdf,.docx,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp" required><button class="primary" type="submit">読み取って追加 →</button></div></form><p class="help">対応形式：PDF、DOCX、PNG、JPG、TIFF、BMP、WebP · 最大 25 MiB · スキャン資料はローカル OCR で読み取ります。認識結果を原文と照合してください。</p><div id="upload-result" class="notice" hidden></div><details id="ocr-preview" class="ocr-preview" hidden><summary>抽出したテキストを表示</summary><pre id="ocr-text"></pre></details></section>
-    <div class="section-heading"><h2>規程ライブラリ</h2><span id="source-count">資料を読み込み中…</span></div>
-    <div id="sources" class="sources source-library" aria-label="登録済み規程資料"></div>
-  </section>
-  <section id="trip" class="page" hidden>
-    <div class="page-heading"><div class="eyebrow">出張申請</div><h1>出張内容を入力する。</h1><p>確定した場所と日時を入力して、見積りを比較します。</p></div>
-    <div class="paper"><div class="section-heading"><h2>文章から入力</h2><span class="badge">記載内容のみ抽出</span></div><label for="intent-text">出張内容を日本語で入力</label><div class="search-line"><input id="intent-text" maxlength="4000" placeholder="例：来週水曜日の朝9時、1人、東京から大阪へ日帰り出張、18時までに帰着、顧客訪問" autocomplete="off"><button type="button" class="primary" id="parse-intent">入力欄に反映 →</button></div><p class="help">相対日は画面で選択したタイムゾーンから計算します。未記載の人数や時刻は推測しません。</p><div id="intent-result" class="notice" hidden></div></div>
-    <form id="trip-form" class="paper"><div class="section-heading"><h2>出張申請</h2><button type="button" id="download-trip" class="text-button">申請データを保存 ↓</button></div>
-      <p class="help">申請番号：<code id="trip-id"></code> · 見積りデータはこの番号に紐づけます。</p>
-      <div class="form-grid">
-        <label>出発地<input name="origin" autocomplete="off" placeholder="実際の出発地"></label>
-        <label>目的地<input name="destination" autocomplete="off" placeholder="見積りの地点と一致させる"></label>
-        <label>出発日時<input name="departure_at" type="datetime-local"></label>
-        <label>到着期限<input name="arrive_by" type="datetime-local"></label>
-        <label>帰着期限<input name="return_by" type="datetime-local"></label>
-        <label>日時のタイムゾーン<select name="timezone"><option value="+09:00">日本標準時（UTC+09:00）</option><option value="+08:00">中国標準時（UTC+08:00）</option><option value="+00:00">協定世界時（UTC+00:00）</option></select></label>
-        <label>人数<input name="travelers" type="number" min="1" step="1"></label>
-        <label>宿泊<select name="lodging_required"><option value="">選択してください</option><option value="yes">必要</option><option value="no">不要</option></select></label>
-        <label class="wide">出張目的<textarea name="purpose" rows="3" placeholder="出張の目的を入力"></textarea></label>
-      </div>
-      <label class="check"><input name="confirmed" type="checkbox">入力した場所、日時、内容を確認しました</label>
-      <div class="form-footer"><p class="help">内容を変更すると確認状態と選択済み見積りは解除されます。</p><button class="primary" type="submit">入力内容を確認 <span>→</span></button></div>
-      <div id="trip-result" class="notice" hidden></div>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f3f1e8">
+  <title>旅程 | 出張計画</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/workspace-theme.css">
+  <script src="/static/workspace.js" defer></script>
+</head>
+<body class="workspace-body">
+  <div id="access-gate" class="access-gate" hidden>
+    <form id="access-form" class="access-card">
+      <span class="eyebrow">チームアクセス</span>
+      <h1>出張計画を開く</h1>
+      <p>管理者から案内されたアクセスコードを入力してください。</p>
+      <label for="access-password">アクセスコード</label>
+      <input id="access-password" type="password" autocomplete="current-password" required>
+      <p id="access-error" class="issue" hidden></p>
+      <button class="primary" type="submit">続ける →</button>
     </form>
-  </section>
-  <section id="plans" class="page" hidden>
-    <div class="page-heading"><div class="eyebrow">データ · 計算 · 比較</div><h1>見積りを読み込み、比較する。</h1><p>外部検索の代わりに、確認済みデータを共通 JSON 形式で取り込みます。</p></div>
-    <div class="paper"><div class="section-heading"><h2>見積りデータの取り込み</h2><span id="plan-count">0 件</span></div><div class="upload-row"><label class="upload">JSON ファイルを選択<input id="plan-file" type="file" accept="application/json,.json"></label><button id="download-plan-schema" class="text-button" type="button">入力形式をダウンロード ↓</button><button id="run-plans" class="primary">計算して比較 →</button></div><p class="help">共通形式の見積り配列を読み込みます。料金、空席、税金の情報は出典とともに入力してください。</p><div id="plan-message" class="notice" hidden></div></div>
-    <div id="plan-results"><div class="empty paper"><span>↔</span><h3>見積りはまだありません</h3><p>出張内容を確認し、JSON ファイルを読み込んでください。</p></div></div>
-  </section>
-  <section id="mail" class="page" hidden>
-    <div class="page-heading"><div class="eyebrow">承認メール</div><h1>承認依頼を下書きする。</h1><p>メール文面を確認して保存できます。送信機能は接続されていません。</p></div>
-    <div class="paper"><p id="selection">見積りが未選択です。比較画面で見積りを選択してください。</p><form id="draft-form"><label for="recipient">承認者のメールアドレス</label><div class="search-line"><input id="recipient" type="email" placeholder="確認済みの宛先を入力" required><button class="primary" id="build-draft" disabled>下書きを作成 ↗</button></div></form>
-    <div id="draft-view" hidden><div class="section-heading"><h2>メール内容</h2><span class="badge">未送信</span></div><pre id="draft-body"></pre><button id="export-draft" class="primary">メールファイルを保存 ↓</button><p class="help">保存したファイルは送信されません。内容を変更した場合は再作成してください。</p></div></div>
-  </section>
-  <footer><span>旅程 / 出張管理</span></footer>
-</main>
-</body></html>
+  </div>
+  <main class="workspace-main">
+    <header class="workspace-topbar">
+      <a class="workspace-brand" href="/" aria-label="旅程 出張計画"><span class="brand-mark">旅</span><span>旅程<small>出張計画サポート</small></span></a>
+      <span class="topbar-caption"><span class="topbar-status-dot" aria-hidden="true"></span>出張計画アシスタント</span>
+    </header>
+
+    <nav id="page-bookmarks" class="page-bookmarks" aria-label="ページ移動">
+      <button id="previous-page" class="bookmark-arrow" type="button" aria-label="前のページへ" disabled><span aria-hidden="true">←</span><span>前へ</span></button>
+      <ol class="bookmark-list">
+        <li><button class="page-bookmark is-current" type="button" data-page-target="work-area" aria-current="step"><span class="bookmark-number">01</span><span>相談</span></button></li>
+        <li><button class="page-bookmark" type="button" data-page-target="proposal-panel" disabled><span class="bookmark-number">02</span><span>計画書</span></button></li>
+        <li><button class="page-bookmark" type="button" data-page-target="email-panel" disabled><span class="bookmark-number">03</span><span>メール</span></button></li>
+      </ol>
+      <button id="next-page" class="bookmark-arrow" type="button" aria-label="次のページへ" disabled><span>次へ</span><span aria-hidden="true">→</span></button>
+    </nav>
+
+    <section class="project-start" aria-labelledby="project-start-title">
+      <div class="project-start-copy">
+        <div class="eyebrow">旅程設計 / 出張計画 01</div>
+        <h1 id="project-start-title">資料と会話から、<br>出張計画をまとめる。</h1>
+        <p class="intro-copy">プロジェクト資料と出張条件を整理し、計画書とメール文を作成します。</p>
+        <div class="project-picker">
+          <div class="labeled-help"><label for="project-select">出張プロジェクト</label><details class="help-tip"><summary aria-label="出張プロジェクトの選び方">?</summary><div role="tooltip">会社が登録したプロジェクトを選ぶと、関連する Markdown 資料から地点・予算・目的などを読み込みます。出張旅費規程やプロジェクト資料は、下の欄から追加できます。</div></details></div>
+          <select id="project-select" required>
+            <option value="">選択してください</option>
+          </select>
+          <p id="project-message" class="inline-status" role="status" hidden></p>
+        </div>
+      </div>
+      <div class="project-start-visual" aria-hidden="true">
+        <svg viewBox="0 0 520 360" role="presentation" focusable="false">
+          <defs>
+            <pattern id="route-grid" width="28" height="28" patternUnits="userSpaceOnUse">
+              <circle cx="1.2" cy="1.2" r="1" fill="#c9efc7" fill-opacity=".24"/>
+            </pattern>
+            <linearGradient id="route-line" x1="0" y1="1" x2="1" y2="0">
+              <stop offset="0" stop-color="#a9d98c"/>
+              <stop offset="1" stop-color="#84e1d1"/>
+            </linearGradient>
+            <radialGradient id="route-glow">
+              <stop offset="0" stop-color="#a9d98c" stop-opacity=".27"/>
+              <stop offset="1" stop-color="#a9d98c" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="route-soft-glow"><feGaussianBlur stdDeviation="6"/></filter>
+          </defs>
+          <rect width="520" height="360" fill="url(#route-grid)"/>
+          <circle cx="387" cy="137" r="130" fill="url(#route-glow)"/>
+          <path d="M44 284C119 274 133 227 198 229s82 47 133 7 74-102 145-105" fill="none" stroke="#d8eee0" stroke-opacity=".16" stroke-width="1"/>
+          <path d="M36 311C116 295 149 263 205 268s77 25 125-15 73-83 148-91" fill="none" stroke="#d8eee0" stroke-opacity=".12" stroke-width="1"/>
+          <path d="M64 246C138 240 159 187 217 191s82 42 128 1 76-94 125-102" fill="none" stroke="#d8eee0" stroke-opacity=".12" stroke-width="1"/>
+          <path d="M71 282C139 267 163 224 222 227s77 34 120-4 68-86 135-96" fill="none" stroke="url(#route-line)" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 0"/>
+          <path d="M71 282C139 267 163 224 222 227s77 34 120-4 68-86 135-96" fill="none" stroke="#eaffd8" stroke-opacity=".3" stroke-width="12" stroke-linecap="round" filter="url(#route-soft-glow)"/>
+          <circle cx="71" cy="282" r="14" fill="#193e38" stroke="#a9d98c" stroke-width="2"/>
+          <circle cx="71" cy="282" r="4" fill="#d8f7aa"/>
+          <circle cx="477" cy="127" r="14" fill="#193e38" stroke="#84e1d1" stroke-width="2"/>
+          <circle cx="477" cy="127" r="4" fill="#bbfff0"/>
+          <circle cx="342" cy="223" r="4" fill="#d6ebc5"/>
+          <circle cx="222" cy="227" r="3" fill="#d6ebc5" fill-opacity=".8"/>
+          <path d="M97 88h93M97 98h54" stroke="#e7f1df" stroke-opacity=".22" stroke-width="2" stroke-linecap="round"/>
+          <path d="M355 302h80M355 312h47" stroke="#e7f1df" stroke-opacity=".22" stroke-width="2" stroke-linecap="round"/>
+          <path d="M410 42v22m-11-11h22" stroke="#d6ebc5" stroke-opacity=".35" stroke-width="1.5"/>
+        </svg>
+        <span class="visual-caption"><i></i>資料から行程を設計</span>
+      </div>
+    </section>
+
+    <section id="project-overview" class="project-overview" hidden aria-labelledby="project-title">
+      <div class="project-overview-heading">
+        <div><span class="eyebrow">選択中のプロジェクト</span><h2 id="project-title"></h2></div>
+        <span id="project-document-count" class="document-count"></span>
+      </div>
+      <div class="project-content-grid">
+        <div>
+          <h3 class="subheading">資料から読み取った出張条件</h3>
+          <dl id="project-fields" class="project-fields"></dl>
+        </div>
+        <div>
+          <h3 class="subheading">関連資料</h3>
+          <div id="project-documents" class="project-documents"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="work-area" class="work-area" aria-label="出張の相談と計画書">
+      <div class="conversation-column">
+        <div class="section-title-row">
+          <div><span class="eyebrow">出張条件</span><div class="labeled-help section-help"><h2>会話で情報を補足する</h2><details class="help-tip"><summary aria-label="会話で補足する方法">?</summary><div role="tooltip">資料にない出発日、到着希望時刻、人数、訪問先住所など、ご自身の希望条件を入力してください。会話内容は計画書にも反映されます。</div></details></div></div>
+          <span id="assistant-status" class="small-status">プロジェクトを選択してください</span>
+        </div>
+        <section class="conversation-card" aria-label="出張計画アシスタントとの会話">
+          <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions text">
+            <article class="chat-message assistant-message"><span class="message-author">旅程 AI</span><p>選択したプロジェクト資料と追加資料をもとに、出張条件を整理します。</p></article>
+          </div>
+          <div id="chat-upload-state" class="chat-upload-state" role="status" hidden></div>
+          <form id="chat-form" class="chat-composer">
+            <div class="upload-control"><label class="attach-button" for="chat-file">＋ 資料を追加<input id="chat-file" type="file" accept=".md,.pdf,.docx,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/tiff,image/bmp,image/webp" multiple></label><details class="help-tip"><summary aria-label="アップロードできる資料">?</summary><div role="tooltip">出張旅費規程、プロジェクト概要、訪問先からの依頼資料などを追加できます。Markdown、PDF、DOCX、PNG、JPG、TIFF、BMP、WebP に対応しています。</div></details></div>
+            <label class="visually-hidden" for="chat-input">出張について補足または質問</label>
+            <textarea id="chat-input" rows="3" maxlength="4000" placeholder="例：希望到着時刻、訪問先住所、出発日、人数などを入力してください。" ></textarea>
+            <div class="composer-footer">
+              <div class="composer-primary-actions">
+                <div class="labeled-help"><button id="create-proposal" class="primary" type="button" disabled>計画書を作成 →</button><details class="help-tip"><summary aria-label="計画書の作成について">?</summary><div role="tooltip">入力欄に書いた内容も条件として取り込み、このページに計画書を作成します。会話の返答が必要な場合は「会話で相談」を選んでください。</div></details></div>
+                <div class="labeled-help"><button id="generate-email" class="secondary" type="button" disabled>生成メール ↓</button><details class="help-tip"><summary aria-label="メール作成について">?</summary><div role="tooltip">メール作成欄へ移動します。宛先や目的を入力してメール文を作成できます。</div></details></div>
+              </div>
+              <div class="labeled-help"><button id="send-chat" class="secondary" type="submit" disabled>会話で相談 ↗</button><details class="help-tip"><summary aria-label="会話で相談する方法">?</summary><div role="tooltip">入力欄の内容を AI に送り、返答を受け取ります。会話の内容は後から作成する計画書にも反映されます。</div></details></div>
+            </div>
+          </form>
+        </section>
+      </div>
+
+    </section>
+
+    <section id="proposal-panel" class="proposal-panel" hidden aria-labelledby="proposal-title">
+      <div class="proposal-heading">
+        <div><span class="eyebrow">作成結果</span><h2 id="proposal-title">出張計画書</h2></div>
+        <div class="proposal-actions"><button id="download-proposal" class="primary" type="button">計画書を保存 ↓</button></div>
+      </div>
+      <article id="proposal-content" class="proposal-content"></article>
+    </section>
+
+    <section id="email-panel" class="email-panel" hidden aria-labelledby="email-title">
+      <div class="email-heading">
+        <div class="email-heading-copy"><span class="eyebrow">メール作成 / 下書き</span><h2 id="email-title">出張メールを作成する</h2></div>
+        <svg class="email-heading-mark" viewBox="0 0 64 48" aria-hidden="true" focusable="false">
+          <rect x="2" y="3" width="60" height="42" rx="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <path d="m5 8 27 20L59 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M5 40 23 25m36 15L41 25" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          <circle cx="54" cy="8" r="3" fill="#c8ee83"/>
+        </svg>
+      </div>
+      <form id="email-form" class="email-form">
+        <div class="email-input-grid">
+          <div class="email-field"><label for="email-recipient">宛先</label><input id="email-recipient" type="text" maxlength="200" placeholder="例：上司、訪問先のご担当者"></div>
+          <div class="email-field"><label for="email-purpose">メールの目的</label><textarea id="email-purpose" rows="2" maxlength="1200">出張計画の共有・確認依頼</textarea></div>
+        </div>
+        <div class="email-generate-row"><button id="create-email-draft" class="primary" type="submit">メール文を作成</button></div>
+        <p id="email-status" class="inline-status" role="status" aria-live="polite" hidden></p>
+        <div id="email-output" class="email-output" hidden>
+          <div class="email-output-topline"><span>メール文を編集</span><button id="copy-email" class="secondary" type="button">メール文をコピー</button></div>
+          <div class="email-paper">
+            <label for="email-subject">件名</label>
+            <input id="email-subject" type="text" maxlength="300">
+            <label for="email-body">本文</label>
+            <textarea id="email-body" rows="16" maxlength="12000"></textarea>
+          </div>
+        </div>
+      </form>
+    </section>
+
+  </main>
+</body>
+</html>

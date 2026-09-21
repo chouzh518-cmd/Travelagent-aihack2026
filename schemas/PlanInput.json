@@ -36,9 +36,16 @@
           "title": "単価"
         },
         "quantity": {
-          "minimum": 1,
-          "title": "数量",
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "数量"
         },
         "unit": {
           "minLength": 1,

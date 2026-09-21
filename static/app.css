@@ -5,18 +5,111 @@
 .access-gate{position:fixed;z-index:20;inset:0;background:rgba(21,42,34,.62);display:grid;place-items:center;padding:20px;backdrop-filter:blur(5px)}.access-card{width:min(100%,420px);padding:34px;background:var(--paper);border:1px solid var(--line);box-shadow:0 24px 70px #132a2240}.access-card h1{font-size:30px;color:var(--ink);margin:4px 0 12px}.access-card>p{color:var(--muted);font-size:12px;margin:0 0 24px}.access-card .primary{width:100%;margin-top:16px}.access-card .issue{margin-top:12px}@media(max-width:720px){.sidebar nav{overflow-x:auto;scrollbar-width:none;justify-content:flex-start}.sidebar nav::-webkit-scrollbar{display:none}.nav{width:auto;flex:0 0 auto;white-space:nowrap}.access-card{padding:26px}}
 .connection-status{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line);background:var(--paper);font-size:10px;letter-spacing:0;color:var(--muted);white-space:nowrap}.connection-status i{width:7px;height:7px;border-radius:50%;background:#b4aa84}.connection-status[data-state=ready] i{background:#5a8055;box-shadow:0 0 0 3px #5a805522}.connection-status[data-state=error] i{background:var(--danger)}.connection-status[data-state=locked] i{background:var(--warm)}@media(max-width:720px){header{gap:10px}.connection-status{font-size:9px;padding:5px 7px}}
 .source-library{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}.source-library .source-item{margin:0}.source-library .source{margin:0;min-height:170px}
-
-/* 強制將超標/不合規標籤變成搶眼紅色 (確保高優先級) */
-.badge.danger, 
-.badge-danger,
-span.badge[class*="danger"],
-.plan-card .badge:not(:has-text("完全合規")) {
-    background-color: #fee2e2 !important;
-    color: #991b1b !important;
-    border: 1px solid #f87171 !important;
-}
-
 /* Conversational travel planning workspace */
 .agent-heading{padding-bottom:16px}.agent-heading h1{max-width:900px}.chat-layout{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:18px;align-items:start}.chat-card{padding:0;min-height:660px;display:flex;flex-direction:column}.chat-topline{display:flex;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--line)}.agent-mark{width:38px;height:38px;display:grid;place-items:center;background:var(--ink);color:var(--accent);font-family:"Yu Mincho","MS PMincho",serif;font-size:21px}.chat-topline strong,.chat-topline small{display:block}.chat-topline strong{font-size:13px}.chat-topline small{font-size:10px;color:var(--muted);margin-top:2px}.chat-topline button{margin-left:auto}.chat-messages{flex:1;min-height:340px;max-height:54vh;overflow:auto;padding:22px;scroll-behavior:smooth}.chat-message{max-width:88%;padding:15px 17px;margin:0 0 14px;background:#f3f3eb;border:1px solid #e6e7dd;animation:appear .2s ease-out}.assistant-message{margin-right:auto}.user-message{margin-left:auto;background:#e7eed9;border-color:#d8e3c8}.message-author{display:block;font-size:9px;letter-spacing:1px;color:#60745d;margin-bottom:7px}.chat-message p{margin:0 0 8px;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}.chat-message p:last-child{margin-bottom:0}.assistant-answer{font-family:inherit;font-size:12px;line-height:1.9;white-space:pre-wrap;overflow-wrap:anywhere;margin:0;color:var(--text)}.chat-citations{margin-top:14px;border-top:1px solid var(--line);padding-top:9px}.chat-citations summary{font-size:10px;color:var(--ink);cursor:pointer}.citation-item{padding:10px 0;border-bottom:1px solid var(--line)}.citation-item strong,.citation-item small{display:block}.citation-item strong{font-size:10px}.citation-item small{font-size:9px;color:var(--muted);margin-top:3px}.citation-item p{font-size:10px;line-height:1.7;margin-top:8px}.pending-message{color:var(--muted)}.chat-composer{border-top:1px solid var(--line);padding:16px 20px 18px}.attach-button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);padding:6px 10px;font-size:10px;color:var(--ink);cursor:pointer;background:#fffefa}.attach-button:hover{border-color:var(--ink);background:#f3f5ed}.attach-button input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}.chat-composer textarea{display:block;min-height:74px;margin:10px 0 8px;padding:12px;border-color:#d6dace;background:#fffefa;font-size:12px;line-height:1.7}.composer-footer{display:flex;justify-content:space-between;align-items:center;gap:12px}.composer-footer>div{display:flex;gap:8px}.composer-footer .help{margin:0}.secondary{border:1px solid var(--line);background:transparent;color:var(--ink);padding:9px 12px;font-size:10px}.secondary:disabled{opacity:.4}.chat-library{position:sticky;top:18px;padding:20px}.chat-library .section-heading{margin:0 0 8px}.chat-library .section-heading h2{font-size:14px}.chat-library>p{margin:0 0 16px}.chat-sources{display:grid;gap:9px}.chat-source{display:grid;grid-template-columns:auto 1fr;gap:3px 9px;padding:10px;background:#f4f4ed;border:1px solid var(--line);min-width:0}.source-type{grid-row:span 2;align-self:start;background:#e1e9d7;color:var(--ink);font-size:8px;padding:2px 5px}.source-title{font-size:10px;font-weight:600;overflow-wrap:anywhere}.chat-source small{font-size:9px;color:var(--muted)}.empty-source{font-size:10px;color:var(--muted);padding:12px 0}.library-link{padding:12px 0 0}.plan-note{display:flex;gap:9px;margin-top:22px;padding-top:14px;border-top:1px solid var(--line)}.plan-note p{font-size:10px;color:var(--muted);line-height:1.8;margin:0}.note-mark{flex:0 0 17px;height:17px;border:1px solid #9cab82;border-radius:50%;display:grid;place-items:center;font-size:10px;color:var(--ink)}.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.chat-upload-state{margin:0 20px 10px;padding:9px 12px;background:#f0f2e7;border-left:2px solid #8a9b64;font-size:10px;white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:920px){.chat-layout{grid-template-columns:minmax(0,1fr) 240px;gap:12px}.chat-library{padding:16px}.chat-messages{padding:17px}}
 @media(max-width:720px){.chat-layout{display:flex;flex-direction:column}.chat-card{width:100%;min-height:590px}.chat-library{position:static;width:100%}.chat-messages{min-height:320px;max-height:48vh;padding:14px}.chat-message{max-width:96%;padding:12px}.chat-composer{padding:13px}.composer-footer{align-items:flex-end}.composer-footer .help{font-size:9px}.composer-footer>div{gap:5px}.composer-footer .primary,.composer-footer .secondary{padding:8px 9px;font-size:9px}.agent-heading h1{font-size:28px}}
+
+.demo-entry{display:flex;align-items:center;gap:12px;padding:0 20px 12px}.demo-entry .secondary{min-height:44px}.demo-entry .help{margin:0}@media(max-width:720px){.demo-entry{align-items:flex-start;flex-direction:column}}
+
+/* Single-page employee workspace */
+.workspace-body{background:#f2f0e8;color:#26372f;font-size:15px}.workspace-main{max-width:1180px;margin:0 auto;padding:0 34px}.workspace-topbar{height:76px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #d9ddd2;letter-spacing:0}.workspace-brand{display:flex;align-items:center;gap:11px;color:var(--ink);text-decoration:none;font-family:"Yu Mincho","MS PMincho",serif;font-size:22px;font-weight:700}.workspace-brand .brand-mark{width:36px;height:39px;font-size:22px}.workspace-brand small{display:block;font:8px/1.4 Georgia,serif;letter-spacing:1.8px;color:#778278;margin-top:2px}.topbar-caption{font-size:11px;color:var(--muted);letter-spacing:1px}.project-start{margin-top:36px;padding:34px 38px;background:#fffefa;border:1px solid var(--line);border-top:3px solid var(--ink)}.project-start .eyebrow,.project-overview .eyebrow,.section-title-row .eyebrow,.proposal-heading .eyebrow{margin-bottom:7px}.project-start h1{font-size:34px;letter-spacing:1px;margin:0 0 7px;color:var(--ink)}.intro-copy{margin:0 0 25px;color:var(--muted);font-size:13px}.project-picker{max-width:610px}.labeled-help{display:flex;align-items:center;gap:9px}.labeled-help>label,.project-picker label{font-weight:600;color:var(--text)}.project-picker select{margin-top:7px;max-width:460px;height:47px;border-color:#cfd5c8;font-size:14px}.inline-status{font-size:11px;color:var(--muted);margin:7px 0 0}.inline-status.is-error{color:var(--danger)}.help-tip{position:relative;display:inline-flex;flex:0 0 auto}.help-tip>summary{list-style:none;display:grid;place-items:center;width:22px;height:22px;border:1px solid #97a18f;border-radius:50%;background:#fffefa;color:#53664f;font:600 12px/1 sans-serif;cursor:help}.help-tip>summary::-webkit-details-marker{display:none}.help-tip>summary:hover,.help-tip>summary:focus-visible,.help-tip[open]>summary{background:var(--ink);border-color:var(--ink);color:#fff}.help-tip>div{display:none;position:absolute;z-index:15;top:calc(100% + 8px);left:0;width:min(290px,calc(100vw - 50px));padding:12px 14px;background:#203e36;color:#fffefa;box-shadow:0 10px 24px #10251d30;font-size:11px;line-height:1.7;font-weight:400;letter-spacing:0}.help-tip:hover>div,.help-tip:focus-within>div,.help-tip[open]>div{display:block}.help-tip>summary:hover+div{display:block}.project-overview{margin-top:18px;padding:25px 30px 29px;background:#e9ede2;border:1px solid #d6decd}.project-overview-heading,.section-title-row,.proposal-heading{display:flex;align-items:center;justify-content:space-between;gap:18px}.project-overview-heading h2,.section-title-row h2,.proposal-heading h2{margin:0;color:var(--ink);font:500 23px/1.35 "Yu Mincho","MS PMincho",serif;letter-spacing:.4px}.document-count,.small-status{font-size:10px;color:var(--muted)}.project-content-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.9fr);gap:32px;margin-top:21px}.subheading{font-size:11px;letter-spacing:.5px;color:#5c6f61;margin:0 0 11px}.project-fields{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;margin:0}.project-field{display:grid;grid-template-columns:105px minmax(0,1fr);gap:8px;padding:9px 0;border-top:1px solid #d5ddcf;font-size:11px}.project-field dt{color:var(--muted)}.project-field dd{margin:0;color:var(--text);font-weight:600;overflow-wrap:anywhere}.project-documents{display:grid;gap:8px}.project-document{background:#fffefa;border:1px solid #d9dfd3}.project-document summary{display:flex;align-items:center;gap:8px;padding:10px;cursor:pointer;list-style:none}.project-document summary::-webkit-details-marker{display:none}.project-document summary strong{font-size:10px;font-weight:600}.project-document summary small{margin-left:auto;font-size:8px;color:#828b83;max-width:115px;overflow-wrap:anywhere;text-align:right}.source-kind{padding:2px 6px;background:#e8eee0;color:#506746;font-size:8px;white-space:nowrap}.source-preview{max-height:260px;overflow:auto;margin:0;padding:12px;border-top:1px solid var(--line);white-space:pre-wrap;overflow-wrap:anywhere;font:10px/1.8 "Yu Gothic UI","Meiryo",sans-serif;color:#4a564f}.work-area{display:block;margin-top:31px}.conversation-column{width:100%}.section-title-row{margin-bottom:13px}.section-help{margin-top:2px}.conversation-card{background:#fffefa;border:1px solid var(--line)}.conversation-card .chat-messages{min-height:260px;max-height:48vh;padding:22px 24px}.conversation-card .chat-composer{padding:16px 21px 20px}.upload-control{display:flex;align-items:center;gap:8px}.upload-control .attach-button{min-height:37px}.conversation-card .chat-composer textarea{font-size:13px;min-height:92px}.composer-footer{justify-content:space-between}.composer-footer .labeled-help{gap:8px}.composer-footer .primary,.composer-footer .secondary{min-height:42px;padding:10px 18px;font-size:11px}.composer-footer .secondary{margin-left:auto}.proposal-panel{margin-top:31px;padding:29px 34px 25px;background:#fffefa;border:1px solid var(--line);border-top:3px solid #799064;scroll-margin-top:18px}.proposal-actions{display:flex;align-items:center;gap:8px}.proposal-actions button{min-height:40px;font-size:10px}.proposal-content{margin-top:22px;border-top:1px solid var(--line);padding-top:19px}.proposal-content h2{margin:0 0 15px;font:500 23px/1.4 "Yu Mincho","MS PMincho",serif;color:var(--ink)}.proposal-content h3{margin:22px 0 9px;padding-bottom:6px;border-bottom:1px solid #e1e4da;font-size:13px;color:var(--ink)}.proposal-content p,.proposal-content li{font-size:12px;line-height:1.85}.proposal-content p{margin:8px 0}.proposal-content ul{margin:7px 0;padding-left:21px}.proposal-content li{padding:2px 0}.proposal-footnote{margin:19px 0 0;padding:11px 13px;background:#f3f1e8;color:#6c746c;font-size:10px;line-height:1.7}
+@media(max-width:760px){.workspace-main{padding:0 15px}.workspace-topbar{height:64px}.project-start{margin-top:18px;padding:24px 19px}.project-start h1{font-size:27px}.intro-copy{font-size:12px;margin-bottom:20px}.project-picker select{max-width:none}.project-overview{padding:20px 17px}.project-content-grid{grid-template-columns:1fr;gap:21px}.project-fields{grid-template-columns:1fr}.project-field{grid-template-columns:110px minmax(0,1fr)}.section-title-row{align-items:flex-start}.section-title-row h2,.proposal-heading h2,.project-overview-heading h2{font-size:20px}.small-status{max-width:120px;text-align:right}.conversation-card .chat-messages{min-height:220px;max-height:46vh;padding:15px}.conversation-card .chat-composer{padding:13px}.composer-footer{align-items:center;gap:7px}.composer-footer .primary,.composer-footer .secondary{padding:9px 11px;font-size:10px}.proposal-panel{padding:22px 18px}.proposal-heading{align-items:flex-start;flex-direction:column}.proposal-actions{width:100%;flex-wrap:wrap}}
+@media(prefers-reduced-motion:reduce){.help-tip>div{transition:none}}
+
+/* Typography and color for the employee workspace */
+.workspace-body{
+  --paper:#fffdf7;
+  --line:#e2e2d8;
+  background:
+    radial-gradient(ellipse at 12% 8%,rgba(223,231,207,.55),transparent 32rem),
+    linear-gradient(180deg,#f7f5ed 0%,#f0efe6 100%);
+  color:#293a31;
+  font-family:"Noto Sans JP","Yu Gothic UI","Meiryo",sans-serif;
+  font-size:15px;
+  line-height:1.8;
+  font-feature-settings:"palt";
+}
+.workspace-brand,.project-start h1,.project-overview-heading h2,
+.section-title-row h2,.proposal-heading h2,.proposal-content h2{
+  font-family:"Noto Serif JP","Yu Mincho","MS PMincho",serif;
+  font-feature-settings:"palt";
+}
+.workspace-main{max-width:1160px}
+.workspace-topbar{border-color:#daddcf}
+.workspace-brand .brand-mark{
+  display:grid;place-items:center;border-radius:48% 48% 45% 45%;
+  background:#315548;color:#f4f1df;box-shadow:inset 0 0 0 1px #ffffff24;
+}
+.project-start{
+  border:1px solid #e0e1d4;border-top:3px solid #607b58;
+  border-radius:4px 4px 2px 2px;background:rgba(255,253,247,.94);
+  box-shadow:0 12px 34px rgba(43,62,45,.045);
+}
+.project-start h1{font-weight:500;letter-spacing:.035em;line-height:1.5}
+.intro-copy{line-height:1.9}
+.project-picker select,.conversation-card,.project-overview,.proposal-panel{
+  border-radius:4px;
+}
+.project-picker select{background-color:#fffef9}
+.project-overview{
+  border-color:#d8dece;
+  background:linear-gradient(135deg,#edf0e5 0%,#e8ecdf 100%);
+}
+.project-document,.conversation-card,.proposal-panel{
+  box-shadow:0 8px 24px rgba(43,62,45,.035);
+}
+.project-overview-heading h2,.section-title-row h2,.proposal-heading h2,
+.proposal-content h2{font-weight:500;letter-spacing:.025em}
+.project-field{font-size:12px}
+.chat-message{border-radius:3px 12px 12px 12px}
+.user-message{border-radius:12px 3px 12px 12px}
+.chat-composer textarea{border-radius:3px}
+.attach-button,.primary,.secondary,.proposal-actions button{border-radius:3px}
+.primary{background:#315548;border-color:#315548}
+.primary:hover{background:#25463a;border-color:#25463a}
+.help-tip>summary{width:18px;height:18px;border-color:#a7ad9c;background:#fffdf7;color:#53684e;font-size:10px}
+.help-tip>div{border-radius:4px;box-shadow:0 12px 30px rgba(25,44,35,.2)}
+.proposal-panel{border-top-color:#70845e}
+.proposal-footnote{border-left:2px solid #9aab7d;border-radius:0 3px 3px 0}
+.workspace-body button,.workspace-body select,.workspace-body textarea,
+.workspace-body input{transition:border-color .16s ease,background-color .16s ease,box-shadow .16s ease}
+.workspace-body button:focus-visible,.workspace-body select:focus-visible,
+.workspace-body textarea:focus-visible,.workspace-body input:focus-visible,
+.workspace-body .help-tip>summary:focus-visible{
+  outline:3px solid #a7ba83;outline-offset:3px;
+}
+@media(max-width:760px){
+  .workspace-body{font-size:14px}
+  .project-start h1{letter-spacing:.01em;line-height:1.5}
+}
+@media(prefers-reduced-motion:reduce){
+  .workspace-body button,.workspace-body select,.workspace-body textarea,
+  .workspace-body input{transition:none}
+}
+.proposal-content h4{margin:17px 0 7px;color:#51684c;font-size:12px;font-weight:600}
+.composer-primary-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.composer-primary-actions .secondary{margin-left:0}
+.composer-footer>.labeled-help{margin-left:auto}
+.email-panel{margin-top:24px;padding:29px 34px;background:#fffefa;border:1px solid var(--line);border-top:3px solid #9aab7d;scroll-margin-top:18px;box-shadow:0 8px 24px rgba(43,62,45,.035)}
+.email-heading{margin-bottom:18px}
+.email-heading h2{margin:0;color:var(--ink);font:500 23px/1.35 "Yu Mincho","MS PMincho",serif;letter-spacing:.4px}
+.email-form{max-width:760px}
+.email-form>label{margin-top:16px;color:var(--text);font-weight:600}
+.email-form>label:first-child{margin-top:0}
+.email-form>button[type=submit]{margin-top:18px}
+.email-output{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+.email-output>label{margin-top:14px;color:var(--text);font-weight:600}
+.email-output>label:first-child{margin-top:0}
+.email-output textarea{line-height:1.85}
+.email-output button{margin-top:14px;padding:9px 15px;border:1px solid #b9c2b1;background:#fffefa;color:var(--ink);font-size:11px}
+.email-output button:hover{background:#f0f2e8}
+.email-panel .inline-status{margin-top:12px;padding:10px 12px;background:#f1f3e9;border-left:2px solid #83976c;line-height:1.7}
+.email-panel .inline-status.is-error{color:#795729;background:#f5efe2;border-left-color:#ad8849}
+@media(max-width:760px){
+  .composer-footer{flex-wrap:wrap}
+  .composer-primary-actions{width:100%;gap:7px}
+  .composer-footer>.labeled-help{margin-left:0}
+  .email-panel{padding:22px 18px}
+  .email-heading h2{font-size:20px}
+}

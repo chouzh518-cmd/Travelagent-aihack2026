@@ -5,7 +5,7 @@ from io import BytesIO
 
 from .models import Block, Chunk, ExtractionOptions, Issue, Location, Reference, Table
 
-PARSER_VERSION = "1.1"
+PARSER_VERSION = "1.2"
 ARTICLE = re.compile(r"^(第[0-9０-９一二三四五六七八九十百]+条)")
 CHAPTER = re.compile(r"^第[0-9０-９一二三四五六七八九十百]+章")
 TABLE_LABEL = re.compile(r"^[（(]?(別表[0-9０-９一二三四五六七八九十百]+)[）)]?")
@@ -214,6 +214,34 @@ def html_blocks(data: bytes, options: ExtractionOptions):
     return blocks, issues
 
 
+def markdown_blocks(data: bytes):
+    try:
+        text = data.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ExtractionError("Markdown must be UTF-8 encoded") from exc
+    blocks = []
+    heading_stack = []
+    for line_number, raw_line in enumerate(text.splitlines(), 1):
+        line = raw_line.strip()
+        if not line:
+            continue
+        heading = re.match(r"^(#{1,6})\s+(.+?)\s*#*\s*$", line)
+        if heading:
+            level = len(heading.group(1))
+            title = heading.group(2).strip()
+            heading_stack = heading_stack[:level - 1]
+            heading_stack.append(title)
+            content, kind = title, "heading"
+        else:
+            content, kind = line, "text"
+        location = Location(page_number=None, block_index=len(blocks) + 1,
+                            locator=f"Markdown line {line_number}")
+        blocks.append(Block(text=content, kind=kind, location=location))
+    if not blocks:
+        raise ExtractionError("no text extracted from Markdown")
+    return blocks, []
+
+
 def docx_blocks(data: bytes):
     from docx import Document
     from docx.table import Table as WordTable
@@ -248,6 +276,8 @@ def extract(data: bytes, source_type: str, options: ExtractionOptions):
             blocks, issues = html_blocks(data, options)
         elif source_type == "docx":
             blocks, issues = docx_blocks(data)
+        elif source_type == "md":
+            blocks, issues = markdown_blocks(data)
         elif source_type in OCR_IMAGE_TYPES:
             blocks, issues = image_blocks(data, source_type)
         else:

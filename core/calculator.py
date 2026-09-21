@@ -20,14 +20,14 @@ def calculate(plan: PlanInput, trip: TripRequest, at: datetime | None = None):
         issues.append("宿泊の要否が確認されていません。")
         complete = False
     for item in plan.costs:
-        amount = None if item.unit_amount is None else item.unit_amount * item.quantity
+        amount = None if item.unit_amount is None or item.quantity is None else item.unit_amount * item.quantity
         breakdown.append({"description": item.description, "category": item.category,
                           "unit_amount": item.unit_amount, "quantity": item.quantity,
                           "unit": item.unit, "amount": amount, "source": item.source,
                           "queried_at": item.queried_at})
         if amount is None or item.taxes_included is not True:
             complete = False
-            issues.append(f"費用が未確定です：{item.description}（金額または税の扱い）。")
+            issues.append(f"費用が未確定です：{item.description}（金額・数量・税の扱いを確認してください）。")
         if amount is not None:
             totals[item.category] = totals.get(item.category, 0) + amount
     present = {item.category for item in plan.costs}
@@ -49,7 +49,7 @@ def calculate(plan: PlanInput, trip: TripRequest, at: datetime | None = None):
     for left, right in zip(all_legs, all_legs[1:]):
         if datetime.fromisoformat(left.arrival_at) > datetime.fromisoformat(right.departure_at):
             itinerary_valid = False
-        issues.append("移動区間の時刻が重複しています。")
+            issues.append("移動区間の時刻が重複しています。")
     for direction in ("outbound", "return"):
         legs = [leg for leg in all_legs if leg.direction == direction]
         if not legs:

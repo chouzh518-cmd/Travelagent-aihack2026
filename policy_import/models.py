@@ -11,7 +11,7 @@ class Model(BaseModel):
 
 
 class Source(Model):
-    type: Literal["pdf", "docx", "html", "png", "jpg", "jpeg", "tif", "tiff", "bmp", "webp"]
+    type: Literal["pdf", "docx", "html", "md", "png", "jpg", "jpeg", "tif", "tiff", "bmp", "webp"]
     url: str | None
     file_path: str | None
 
@@ -37,7 +37,7 @@ class ImportSpec(Model):
     schema_version: Literal["1.0"] = "1.0"
     document_id: str = Field(min_length=1)
     title: str = Field(min_length=1)
-    document_kind: Literal["policy", "template"]
+    document_kind: Literal["policy", "template", "project"]
     issuer_name: str | None
     policy_version: str | None
     revision_date: str | None
@@ -105,7 +105,7 @@ class Snapshot(Model):
     document_id: str
     snapshot_id: str
     title: str
-    document_kind: Literal["policy", "template"]
+    document_kind: Literal["policy", "template", "project"]
     issuer_name: str | None
     policy_version: str | None
     revision_date: str | None
@@ -163,7 +163,7 @@ class Hit(Model):
     document_id: str
     snapshot_id: str
     title: str
-    document_kind: Literal["policy", "template"]
+    document_kind: Literal["policy", "template", "project"]
     source: Source
     snapshot_path: str
     content_sha256: str

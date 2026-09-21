@@ -43,7 +43,7 @@ class CostItem(Model):
     category: Literal["transport", "hotel", "transfer", "per_diem"]
     currency: Literal["JPY"]
     unit_amount: int | None = Field(ge=0)
-    quantity: int = Field(ge=1)
+    quantity: int | None = Field(ge=1)
     unit: str = Field(min_length=1)
     taxes_included: bool | None
     source: str = Field(min_length=1)
