@@ -44,7 +44,7 @@
   </section>
   <section id="trip" class="page" hidden>
     <div class="page-heading"><div class="eyebrow">出張申請</div><h1>出張内容を入力する。</h1><p>確定した場所と日時を入力して、見積りを比較します。</p></div>
-    <div class="paper"><div class="section-heading"><h2>文章から入力</h2><span class="badge">記載内容のみ抽出</span></div><label for="intent-text">出張内容を日本語で入力</label><div class="search-line"><input id="intent-text" maxlength="4000" placeholder="例：来週水曜日に東京から大阪へ日帰り出張、顧客訪問" autocomplete="off"><button type="button" class="primary" id="parse-intent">入力欄に反映 →</button></div><p class="help">相対日は画面で選択したタイムゾーンから計算します。未記載の人数や時刻は推測しません。</p><div id="intent-result" class="notice" hidden></div></div>
+    <div class="paper"><div class="section-heading"><h2>文章から入力</h2><span class="badge">記載内容のみ抽出</span></div><label for="intent-text">出張内容を日本語で入力</label><div class="search-line"><input id="intent-text" maxlength="4000" placeholder="例：来週水曜日の朝9時、1人で東京から大阪へ日帰り出張、18時までに帰着、顧客訪問" autocomplete="off"><button type="button" class="primary" id="parse-intent">入力欄に反映 →</button></div><p class="help">相対日は画面で選択したタイムゾーンから計算します。未記載の人数や時刻は推測しません。</p><div id="intent-result" class="notice" hidden></div></div>
     <form id="trip-form" class="paper"><div class="section-heading"><h2>出張申請</h2><button type="button" id="download-trip" class="text-button">申請データを保存 ↓</button></div>
       <p class="help">申請番号：<code id="trip-id"></code> · 見積りデータはこの番号に紐づけます。</p>
       <div class="form-grid">

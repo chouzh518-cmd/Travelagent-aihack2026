@@ -1,0 +1,223 @@
+{
+  "execution_id": "4122e615f91148c5bc977452637b2246",
+  "trip_id": "a7afaf0b-def5-4e16-9350-daa27d72a688",
+  "status": "needs_rule_review",
+  "elapsed_seconds": 0.565,
+  "events": [
+    {
+      "queried_at": "2026-09-21T02:46:56.752026+00:00",
+      "step": "requirements",
+      "status": "ready",
+      "message": null
+    },
+    {
+      "queried_at": "2026-09-21T02:46:56.799540+00:00",
+      "step": "policy",
+      "status": "needs_human_review",
+      "message": "規程原文と抽出可能なルールを読み込みました。適用範囲と規程適合は未判定です。"
+    },
+    {
+      "queried_at": "2026-09-21T02:46:56.799767+00:00",
+      "step": "calculation",
+      "status": "completed",
+      "message": "費用と往復の所要時間を計算し、行程条件を確認しました。"
+    },
+    {
+      "queried_at": "2026-09-21T02:46:56.799771+00:00",
+      "step": "policy",
+      "status": "reviewing",
+      "message": "AI が規程と見積り金額を照合しています..."
+    },
+    {
+      "queried_at": "2026-09-21T02:46:57.316967+00:00",
+      "step": "policy",
+      "status": "failed",
+      "message": "AI判定中にエラーが発生しました: Error code: 429 - {'error': {'code': 'free_rate_limited', 'message': 'Free models are not available to this account yet. They require the workspace owner to link a GitHub account that has been registered for some time — a newly created GitHub account does not qualify yet. Link an established GitHub account in your profile settings, or add credits to use paid access: https://www.orcarouter.ai/console/billing (request id: 202609210246573965410758268d9d6iR84cht7)', 'metadata': {'buy_credits_url': 'https://www.orcarouter.ai/console/billing', 'reason': 'err_free_access_denied', 'retryable': False}, 'type': 'rate_limit_error'}}"
+    }
+  ],
+  "comparison": {
+    "results": [
+      {
+        "plan_id": "plan_001_shinkansen",
+        "version": "v1.0",
+        "trip_id": "a7afaf0b-def5-4e16-9350-daa27d72a688",
+        "currency": "JPY",
+        "data_kind": "simulation",
+        "source": "backend_mock",
+        "queried_at": "2026-09-20T21:00:00+09:00",
+        "cost_breakdown": [
+          {
+            "description": "新幹線來回車票",
+            "category": "transport",
+            "unit_amount": 14500,
+            "quantity": 2,
+            "unit": "ticket",
+            "amount": 29000,
+            "source": "train_api_mock",
+            "queried_at": "2026-09-20T21:00:00+09:00"
+          },
+          {
+            "description": "東橫 INN 大阪",
+            "category": "hotel",
+            "unit_amount": 7500,
+            "quantity": 1,
+            "unit": "night",
+            "amount": 7500,
+            "source": "hotel_api_mock",
+            "queried_at": "2026-09-20T21:00:00+09:00"
+          }
+        ],
+        "category_totals": {
+          "transport": 29000,
+          "hotel": 7500
+        },
+        "known_subtotal": 36500,
+        "total_cost": null,
+        "cost_complete": false,
+        "elapsed_minutes": {
+          "outbound": 150.0,
+          "return": 150.0
+        },
+        "travel_minutes": {
+          "outbound": 150.0,
+          "return": 150.0
+        },
+        "itinerary_valid": false,
+        "quote_fresh": true,
+        "available": true,
+        "compliant": null,
+        "needs_approval": null,
+        "issues": [
+          "宿泊なしの申請ですが、見積りに宿泊費が含まれています。",
+          "移動区間の時刻が重複しています。",
+          "往路の出発地または目的地が申請内容と一致しません。",
+          "往路の出発が申請した出発日時より早くなっています。",
+          "復路の出発地または目的地が申請内容と一致しません。",
+          "規程の適用範囲と承認条件が未確認のため、規程適合は未判定です。"
+        ]
+      },
+      {
+        "plan_id": "plan_002_flight",
+        "version": "v1.0",
+        "trip_id": "a7afaf0b-def5-4e16-9350-daa27d72a688",
+        "currency": "JPY",
+        "data_kind": "simulation",
+        "source": "backend_mock",
+        "queried_at": "2026-09-20T21:00:00+09:00",
+        "cost_breakdown": [
+          {
+            "description": "JAL 經濟艙來回",
+            "category": "transport",
+            "unit_amount": 16000,
+            "quantity": 2,
+            "unit": "ticket",
+            "amount": 32000,
+            "source": "flight_api_mock",
+            "queried_at": "2026-09-20T21:00:00+09:00"
+          },
+          {
+            "description": "大阪萬豪酒店 (超出制度上限)",
+            "category": "hotel",
+            "unit_amount": 35000,
+            "quantity": 1,
+            "unit": "night",
+            "amount": 35000,
+            "source": "hotel_api_mock",
+            "queried_at": "2026-09-20T21:00:00+09:00"
+          }
+        ],
+        "category_totals": {
+          "transport": 32000,
+          "hotel": 35000
+        },
+        "known_subtotal": 67000,
+        "total_cost": null,
+        "cost_complete": false,
+        "elapsed_minutes": {
+          "outbound": 70.0,
+          "return": 70.0
+        },
+        "travel_minutes": {
+          "outbound": 70.0,
+          "return": 70.0
+        },
+        "itinerary_valid": false,
+        "quote_fresh": true,
+        "available": true,
+        "compliant": null,
+        "needs_approval": null,
+        "issues": [
+          "宿泊なしの申請ですが、見積りに宿泊費が含まれています。",
+          "移動区間の時刻が重複しています。",
+          "往路の出発地または目的地が申請内容と一致しません。",
+          "往路の出発が申請した出発日時より早くなっています。",
+          "復路の出発地または目的地が申請内容と一致しません。",
+          "規程の適用範囲と承認条件が未確認のため、規程適合は未判定です。"
+        ]
+      }
+    ],
+    "price_order": [],
+    "time_order": [],
+    "message": "順位は有効な費用・時間データの比較結果です。規程への適合は別途確認してください。"
+  },
+  "validation": {
+    "status": "ready",
+    "missing_fields": [],
+    "question": null
+  },
+  "policy": {
+    "status": "needs_human_review",
+    "retrieval_method": "chroma_semantic_fastembed_v1",
+    "query": "東京 大阪 顧客訪問 交通費 宿泊費 出張規程 承認条件",
+    "evidence": [
+      {
+        "document_id": "upload_b8a9b1133684ef94b691",
+        "snapshot_id": "265d32bbec6a9234f91bb0a345d44ff7ea9d9992ea92e89db49746ef5a733612",
+        "title": "屏幕截图 2026-09-21 054813",
+        "chunk_id": "265d32bbec6a9234f91bb0a345d44ff7ea9d9992ea92e89db49746ef5a733612:1",
+        "article_label": null,
+        "text": "做一份仅用于测试的PDF，写入一条虚构规则，例如：“RAG测试条款731：大阪出差住宿上限为18,700日元。”不\n要放真实机密资料。",
+        "locations": [
+          {
+            "page_number": 1,
+            "block_index": 1,
+            "locator": "Image page 1",
+            "bbox": null
+          }
+        ],
+        "distance": 0.509719967842102
+      }
+    ],
+    "rules": [],
+    "citations": [
+      {
+        "document_id": "upload_b8a9b1133684ef94b691",
+        "snapshot_id": "265d32bbec6a9234f91bb0a345d44ff7ea9d9992ea92e89db49746ef5a733612",
+        "title": "屏幕截图 2026-09-21 054813",
+        "chunk_id": "265d32bbec6a9234f91bb0a345d44ff7ea9d9992ea92e89db49746ef5a733612:1",
+        "article_label": null,
+        "text": "做一份仅用于测试的PDF，写入一条虚构规则，例如：“RAG测试条款731：大阪出差住宿上限为18,700日元。”不\n要放真实机密资料。",
+        "locations": [
+          {
+            "page_number": 1,
+            "block_index": 1,
+            "locator": "Image page 1",
+            "bbox": null
+          }
+        ],
+        "distance": 0.509719967842102
+      }
+    ],
+    "conflicts": [],
+    "compliant": null,
+    "needs_approval": null,
+    "company_applicable": false,
+    "issues": [
+      {
+        "code": "RETRIEVAL_ONLY",
+        "message": "この API は検索根拠のみを返します。回答文の生成には会話アシスタントを使用してください。"
+      }
+    ],
+    "message": "以下は意味検索で取得した原文の根拠です。適用範囲、金額、例外、承認条件は原文で確認してください。"
+  }
+}

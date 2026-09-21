@@ -1,6 +1,6 @@
 """Local-only desktop interface. Run: python app.py"""
 from __future__ import annotations
-
+import json
 import argparse
 import hashlib
 import hmac
@@ -116,6 +116,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, (ROOT / name).read_bytes(), kind)
             elif url.path == "/api/plan-schema":
                 self.reply(200, (ROOT / "schemas/PlanInput.json").read_bytes(), "application/schema+json; charset=utf-8", "PlanInput.schema.json")
+            elif url.path == "/api/demo-plans":
+                import json
+                self.reply(200, json.loads((ROOT / "plans_only.json").read_bytes()))
             elif url.path == "/api/snapshots":
                 with self.server.store_lock:
                     store = self.server.store
@@ -150,6 +153,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(404, {"status": "not_found", "message": "指定されたページまたは機能が見つかりません。"})
         except (ValueError, OSError) as exc:
             self.reply(400, {"status": "failed", "message": str(exc)})
+
 
     def do_POST(self):
         if not self.local_request():

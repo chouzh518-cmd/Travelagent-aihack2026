@@ -1,0 +1,30 @@
+{
+  "execution_id": "c475effcca0543faa39120444e042009",
+  "trip_id": "9c346ee4-2bae-4931-b867-e6ceae6b71ab",
+  "status": "needs_information",
+  "elapsed_seconds": 0.0,
+  "events": [
+    {
+      "queried_at": "2026-09-21T02:41:33.796834+00:00",
+      "step": "requirements",
+      "status": "needs_information",
+      "message": "次の項目を入力してください：出発地、目的地、出発日時、帰着日時、到着期限、出張目的、人数、宿泊の要否。"
+    }
+  ],
+  "comparison": null,
+  "validation": {
+    "status": "needs_information",
+    "missing_fields": [
+      "origin",
+      "destination",
+      "departure_at",
+      "return_by",
+      "arrive_by",
+      "purpose",
+      "travelers",
+      "lodging_required"
+    ],
+    "question": "次の項目を入力してください：出発地、目的地、出発日時、帰着日時、到着期限、出張目的、人数、宿泊の要否。"
+  },
+  "policy": null
+}

@@ -39,9 +39,68 @@ byId("trip-form").onsubmit=event=>{event.preventDefault();busy(event.submitter,a
 function downloadJson(value,name){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:"application/json"})),link=node("a");link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 byId("download-trip").onclick=()=>downloadJson(tripData(),"出張申請.json");
 byId("download-plan-schema").onclick=()=>{const link=node("a");link.href="/api/plan-schema";link.download="PlanInput.schema.json";link.click();};
-byId("plan-file").onchange=async event=>{invalidateSelection();state.plans=[];byId("plan-count").textContent="0 件";byId("plan-results").replaceChildren();const file=event.target.files[0];if(!file)return;try{if(file.size>2*1024*1024)throw new Error("見積りファイルは 2 MiB 以下にしてください。");const result=await api("/api/plans",JSON.parse(await file.text()));state.plans=result.plans;byId("plan-count").textContent=`${state.plans.length} 件`;byId("plan-message").textContent=state.plans.length?"形式を確認しました。「計算して比較」を押してください。":"見積りがありません。空の結果は自動補完しません。";byId("plan-message").hidden=false;}catch(error){errorMessage(error);}};
-function renderPlan(item,result,box){const card=node("article",undefined,"paper plan-card"),top=node("div",undefined,"plan-top"),planHeading=node("h3",item.plan_id),kind=node("span",item.data_kind==="simulation"?"シミュレーション":"入力データ","badge");top.append(planHeading,kind);card.append(top);const rank=[];if(result.comparison.price_order.includes(item.plan_id))rank.push(`費用 ${result.comparison.price_order.indexOf(item.plan_id)+1} 位`);if(result.comparison.time_order.includes(item.plan_id))rank.push(`所要時間 ${result.comparison.time_order.indexOf(item.plan_id)+1} 位`);if(rank.length)card.append(node("p",rank.join(" · "),"badge"));const metrics=node("div",undefined,"plan-metrics"),cost=node("div"),duration=node("div");cost.append(node("span",item.total_cost===null?"既知の小計 · 未確定費用あり":"合計 · JPY"),node("strong",`¥${(item.total_cost??item.known_subtotal).toLocaleString("ja-JP")}`));const times=Object.values(item.elapsed_minutes);duration.append(node("span","往復所要時間"),node("strong",times.includes(null)?"未計算":`${times.reduce((sum,value)=>sum+value,0).toLocaleString("ja-JP")} 分`));metrics.append(cost,duration);card.append(metrics,node("p","規程への適合：未確認","badge warning"));const details=node("details"),summary=node("summary","費用の内訳と確認事項");details.append(summary);for(const row of item.cost_breakdown)details.append(node("p",`${row.description} · ${row.unit_amount??"不明"} × ${row.quantity} = ${row.amount??"不明"} JPY`,"help"));for(const issue of item.issues)details.append(node("p",issue,"issue"));card.append(details);const choose=node("button","この見積りで承認メールを作成 →","primary");choose.onclick=()=>{state.selected=state.plans.find(plan=>plan.plan_id===item.plan_id);clearDraft();document.querySelectorAll(".plan-card").forEach(element=>element.classList.remove("selected"));card.classList.add("selected");byId("selection").textContent=`選択中：${state.selected.plan_id} · 版 ${state.selected.version}。規程への適合は未確認です。`;byId("build-draft").disabled=false;showTab("mail");};card.append(choose);box.append(card);}
-byId("run-plans").onclick=event=>busy(event.currentTarget,async()=>{invalidateSelection();const result=await api("/api/run",{trip:tripData(),plans:state.plans,policy:null}),box=byId("plan-results");box.replaceChildren();if(result.events?.length){const visibleEvents=result.events.filter(item=>item.step!=="policy");if(visibleEvents.length){const log=node("details"),summary=node("summary","処理記録を見る");log.append(summary);for(const item of visibleEvents)log.append(node("p",`${workflowNames[item.step]||item.step} · ${workflowStatuses[item.status]||item.status} · ${item.message}`,"help"));box.append(log);}}if(!result.comparison){box.append(node("p",result.validation?.question||`処理を停止しました：${workflowStatuses[result.status]||result.status}。見積り金額は算出されていません。`,"notice"));return;}box.append(node("p",result.comparison.message,"notice"));if(!result.comparison.results.length)box.append(node("p","比較できる見積りがありません。","notice"));for(const item of result.comparison.results)renderPlan(item,result,box);});
+byId("plan-file").onchange=async event=>{invalidateSelection();state.plans=[];byId("plan-count").textContent="0 件";byId("plan-results").replaceChildren();const file=event.target.files[0];if(!file)return;try{if(file.size>2*1024*1024)throw new Error("見積りファイルは 2 MiB 以下にしてください。");
+    
+    
+    
+const parsedData = JSON.parse(await file.text());
+// 自動將系統當前的 tripId 注入到每一個模擬報價中
+parsedData.forEach(plan => plan.trip_id = state.tripId);
+const result = await api("/api/plans", parsedData);
+
+
+state.plans=result.plans;byId("plan-count").textContent=`${state.plans.length} 件`;byId("plan-message").textContent=state.plans.length?"形式を確認しました。「計算して比較」を押してください。":"見積りがありません。空の結果は自動補完しません。";byId("plan-message").hidden=false;}catch(error){errorMessage(error);}};
+function renderPlan(item,result,box){const card=node("article",undefined,"paper plan-card"),top=node("div",undefined,"plan-top"),planHeading=node("h3",item.plan_id),kind=node("span",item.data_kind==="simulation"?"シミュレーション":"入力データ","badge");top.append(planHeading,kind);card.append(top);const rank=[];if(result.comparison.price_order.includes(item.plan_id))rank.push(`費用 ${result.comparison.price_order.indexOf(item.plan_id)+1} 位`);if(result.comparison.time_order.includes(item.plan_id))rank.push(`所要時間 ${result.comparison.time_order.indexOf(item.plan_id)+1} 位`);if(rank.length)card.append(node("p",rank.join(" · "),"badge"));const metrics=node("div",undefined,"plan-metrics"),cost=node("div"),duration=node("div");cost.append(node("span",item.total_cost===null?"既知の小計 · 未確定費用あり":"合計 · JPY"),node("strong",`¥${(item.total_cost??item.known_subtotal).toLocaleString("ja-JP")}`));const times=Object.values(item.elapsed_minutes);duration.append(node("span","往復所要時間"),node("strong",times.includes(null)?"未計算":`${times.reduce((sum,value)=>sum+value,0).toLocaleString("ja-JP")} 分`));metrics.append(cost,duration);
+
+
+// card.append(metrics,node("p","規程への適合：未確認","badge warning"));
+if (item.compliant === true) {
+    card.append(metrics, node("p", "完全合規", "badge"));
+    card.lastElementChild.style.backgroundColor = "#d1fae5"; // 綠底
+    card.lastElementChild.style.color = "#065f46"; // 綠字
+} else if (item.compliant === false) {
+    card.append(metrics, node("p", "超標需審批", "badge danger"));
+} else {
+    card.append(metrics, node("p", "規程への適合：未確認", "badge warning"));
+}
+
+
+
+const details=node("details"),summary=node("summary","費用の内訳と確認事項");details.append(summary);for(const row of item.cost_breakdown)details.append(node("p",`${row.description} · ${row.unit_amount??"不明"} × ${row.quantity} = ${row.amount??"不明"} JPY`,"help"));for(const issue of item.issues)details.append(node("p",issue,"issue"));card.append(details);const choose=node("button","この見積りで承認メールを作成 →","primary");choose.onclick=()=>{state.selected=state.plans.find(plan=>plan.plan_id===item.plan_id);clearDraft();document.querySelectorAll(".plan-card").forEach(element=>element.classList.remove("selected"));card.classList.add("selected");let complianceStatus = item.compliant === true ? "完全合規" : (item.compliant === false ? "超標需審批" : "未確認");byId("selection").textContent=`選択中：${state.selected.plan_id} · 版 ${state.selected.version}。規程への適合：${complianceStatus}。`;byId("build-draft").disabled=false;showTab("mail");};card.append(choose);box.append(card);}
+
+byId("run-plans").onclick=event=>busy(event.currentTarget,async()=>{
+    invalidateSelection();
+    if(state.plans.length===0){
+        const response=await fetch("/api/demo-plans",{headers:authHeaders()});
+        if(response.ok){
+            const mockData=await response.json();
+            mockData.forEach(plan=>plan.trip_id=state.tripId);
+            state.plans=mockData;
+            byId("plan-count").textContent=`${state.plans.length} 件 (AI自動生成)`;
+        }else{
+            throw new Error("找不到 plans_only.json，請確定檔案在專案根目錄。");
+        }
+    }
+    const result=await api("/api/run",{trip:tripData(),plans:state.plans,policy:null}),box=byId("plan-results");
+    box.replaceChildren();
+    if(result.events?.length){
+        const visibleEvents=result.events.filter(item=>item.step!=="policy");
+        if(visibleEvents.length){
+            const log=node("details"),summary=node("summary","処理記録を見る");
+            log.append(summary);
+            for(const item of visibleEvents)log.append(node("p",`${workflowNames[item.step]||item.step} · ${workflowStatuses[item.status]||item.status} · ${item.message}`,"help"));
+            box.append(log);
+        }
+    }
+    if(!result.comparison){
+        box.append(node("p",result.validation?.question||`処理を停止しました：${workflowStatuses[result.status]||result.status}。見積り金額は算出されていません。`,"notice"));
+        return;
+    }
+    box.append(node("p",result.comparison.message,"notice"));
+    if(!result.comparison.results.length)box.append(node("p","比較できる見積りがありません。","notice"));
+    for(const item of result.comparison.results)renderPlan(item,result,box);
+});
+
 function draftInput(){if(!state.selected)throw new Error("先に比較画面で見積りを選択してください。");return {trip:tripData(),plan:state.selected,recipient:byId("recipient").value.trim()};}
 byId("recipient").oninput=clearDraft;
 function showDraft(draft){byId("draft-body").textContent=`宛先：${draft.recipient}\n件名：${draft.subject}\n\n${draft.body}`;byId("draft-view").hidden=false;}
