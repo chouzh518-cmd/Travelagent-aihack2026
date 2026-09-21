@@ -1,0 +1,27 @@
+{
+  "formula_version": "1.0",
+  "weights": {
+    "input_length": 0.20,
+    "field_length": 0.20,
+    "field_coverage": 0.15,
+    "word_complexity": 0.20,
+    "semantic_constraints": 0.25
+  },
+  "normalization": {
+    "input_characters_for_100": 2000,
+    "field_characters_for_100": 800,
+    "constraint_markers_for_100": 7
+  },
+  "tier_minimum_scores": {
+    "D": 0,
+    "C": 26,
+    "B": 51,
+    "A": 76
+  },
+  "model_routes": {
+    "A": "orcarouter/fusion",
+    "B": "orcarouter/fusion-mini",
+    "C": "orcarouter/auto",
+    "D": "orcarouter/free"
+  }
+}

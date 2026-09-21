@@ -1,0 +1,22 @@
+{
+  "projects": [
+    {
+      "project_id": "planty",
+      "project_name": "planty",
+      "documents": [
+        {
+          "document_id": "planty_project_brief",
+          "title": "planty 出張プロジェクト概要",
+          "document_kind": "project",
+          "path": "data/projects/planty/project.md"
+        },
+        {
+          "document_id": "planty_travel_policy_excerpt",
+          "title": "出張旅費規程・共有画像の抜粋",
+          "document_kind": "policy",
+          "path": "data/projects/planty/travel_policy_excerpt.md"
+        }
+      ]
+    }
+  ]
+}

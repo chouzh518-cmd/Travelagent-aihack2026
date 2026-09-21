@@ -7,6 +7,5 @@ storage/*.lock
 data/policies/snapshots/
 data/policies/sources/
 .env
-.venv/
-__pycache__/
 models/
+output/agent-traces/

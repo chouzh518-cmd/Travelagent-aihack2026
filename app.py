@@ -1,6 +1,6 @@
 """Local-only desktop interface. Run: python app.py"""
 from __future__ import annotations
-import json
+
 import argparse
 import hashlib
 import hmac
@@ -16,13 +16,18 @@ from urllib.parse import parse_qs, unquote, urlsplit
 from pydantic import Field, ValidationError
 
 from agents.rag_agent import AgentRequest, answer as answer_agent, status as agent_status
+from agents.email_writer import generate as generate_email
+from agents.intent_router import interpret as interpret_intent
+from agents.trace_log import error_code as trace_error_code, new_trace_id, record as record_trace
 from core.contracts import NaturalLanguageInput, PlanInput, TripRequest
 from core.emailer import build_draft, save_draft
 from core.intent_parser import parse_text, validate_request
 from core.planner import run
 from core.rule_matcher import RuleRequest, extract_verified_rules
+from tools.simulation_provider import create_simulated_offers
 from policy_import.models import Binding, ImportSpec, Model, SearchRequest, Source
 from policy_import.store import PolicyStore
+from project_catalog import load_projects
 
 ROOT = Path(__file__).resolve().parent
 
@@ -39,6 +44,15 @@ class DraftInput(Model):
     recipient: str
 
 
+class EmailGenerateInput(Model):
+    project_name: str = Field(min_length=1, max_length=160)
+    recipient: str = Field(default="", max_length=200)
+    purpose: str = Field(default="出張計画の共有・確認依頼", max_length=1200)
+    project_context: str = Field(default="", max_length=12000)
+    plan_context: str = Field(default="", max_length=12000)
+    conversation_context: str = Field(default="", max_length=12000)
+
+
 class LocalServer(ThreadingHTTPServer):
     daemon_threads = True
 
@@ -47,6 +61,14 @@ class LocalServer(ThreadingHTTPServer):
         self.store = PolicyStore(root)
         self.store_lock = threading.Lock()
         super().__init__(address, Handler)
+
+
+def record_routing(trace_id, routing, *, stage="complexity_routing"):
+    if not routing:
+        return
+    record_trace(trace_id, stage, "local_complexity_router", "scored",
+                 model_route=routing.get("model_route"), tier=routing.get("tier"),
+                 score=routing.get("score"), features=routing.get("features"))
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -107,7 +129,9 @@ class Handler(BaseHTTPRequestHandler):
         url = urlsplit(self.path)
         assets = {"/": ("templates/plan_compare.html", "text/html; charset=utf-8"),
                   "/static/app.css": ("static/app.css", "text/css; charset=utf-8"),
-                  "/static/app.js": ("static/app.js", "text/javascript; charset=utf-8")}
+                  "/static/workspace-theme.css": ("static/workspace-theme.css", "text/css; charset=utf-8"),
+                  "/static/app.js": ("static/app.js", "text/javascript; charset=utf-8"),
+                  "/static/workspace.js": ("static/workspace.js", "text/javascript; charset=utf-8")}
         try:
             if url.path == "/healthz":
                 self.reply(200, {"status": "ok"})
@@ -116,9 +140,24 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, (ROOT / name).read_bytes(), kind)
             elif url.path == "/api/plan-schema":
                 self.reply(200, (ROOT / "schemas/PlanInput.json").read_bytes(), "application/schema+json; charset=utf-8", "PlanInput.schema.json")
-            elif url.path == "/api/demo-plans":
-                import json
-                self.reply(200, json.loads((ROOT / "plans_only.json").read_bytes()))
+            elif url.path == "/api/projects":
+                projects = load_projects(self.server.root)
+                with self.server.store_lock:
+                    for project in projects:
+                        for document in project["documents"]:
+                            spec = ImportSpec(
+                                document_id=document["document_id"], title=document["title"],
+                                document_kind=document["document_kind"], issuer_name=None,
+                                policy_version=None, revision_date=None,
+                                source=Source(type="md", url=None, file_path=document["path"]),
+                            )
+                            record = self.server.store.ingest(spec, document["content"].encode("utf-8"))
+                            self.server.store.bind(Binding(
+                                company_id=None, document_id=record.document_id,
+                                snapshot_id=record.snapshot_id, usage_mode="demo",
+                                approval_evidence=None,
+                            ))
+                self.reply(200, projects)
             elif url.path == "/api/snapshots":
                 with self.server.store_lock:
                     store = self.server.store
@@ -131,7 +170,8 @@ class Handler(BaseHTTPRequestHandler):
                                 "issues": [issue.model_dump() for issue in r.issues]} for r in records])
             elif url.path == "/api/agent/status":
                 with self.server.store_lock:
-                    result = agent_status(self.server.store)
+                    agent_state = agent_status(self.server.store)
+                result = {"source_count": agent_state["source_count"]}
                 self.reply(200, result)
             elif url.path == "/api/source":
                 sid = parse_qs(url.query).get("snapshot_id", [""])[0]
@@ -154,7 +194,6 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, OSError) as exc:
             self.reply(400, {"status": "failed", "message": str(exc)})
 
-
     def do_POST(self):
         if not self.local_request():
             return
@@ -166,9 +205,9 @@ class Handler(BaseHTTPRequestHandler):
                 filename = unquote(self.headers.get("X-File-Name", ""))
                 filename = filename.replace("\\", "/").rsplit("/", 1)[-1].strip()
                 suffix = Path(filename).suffix.lower().removeprefix(".")
-                supported = {"pdf", "docx", "png", "jpg", "jpeg", "tif", "tiff", "bmp", "webp"}
+                supported = {"pdf", "docx", "md", "png", "jpg", "jpeg", "tif", "tiff", "bmp", "webp"}
                 if suffix not in supported:
-                    return self.reply(400, {"status": "invalid_input", "message": "対応形式は PDF、DOCX、PNG、JPG、TIFF、BMP、WebP です。"})
+                    return self.reply(400, {"status": "invalid_input", "message": "対応形式は Markdown、PDF、DOCX、PNG、JPG、TIFF、BMP、WebP です。"})
                 data = self.rfile.read(size)
                 if len(data) != size:
                     return self.reply(400, {"status": "invalid_input", "message": "ファイルを最後までアップロードできませんでした。再試行してください。"})
@@ -177,7 +216,8 @@ class Handler(BaseHTTPRequestHandler):
                 title = Path(filename).stem[:160] or "手動アップロード資料"
                 document_id = "upload_" + hashlib.sha256(filename.encode("utf-8")).hexdigest()[:20]
                 source_type = "jpg" if suffix == "jpeg" else suffix
-                spec = ImportSpec(document_id=document_id, title=title, document_kind="policy",
+                document_kind = "project" if suffix == "md" else "policy"
+                spec = ImportSpec(document_id=document_id, title=title, document_kind=document_kind,
                                   issuer_name=None, policy_version=None, revision_date=None,
                                   source=Source(type=source_type, url=None, file_path=f"uploaded/{filename}"))
                 with self.server.store_lock:
@@ -213,6 +253,32 @@ class Handler(BaseHTTPRequestHandler):
                 request = AgentRequest.model_validate(payload)
                 with self.server.store_lock:
                     result = answer_agent(self.server.store, request)
+                trace_id = new_trace_id()
+                routing = result.get("routing") or {}
+                record_routing(trace_id, routing)
+                understanding = result.get("intent_understanding") or {}
+                intent_route = understanding.get("routing") or routing
+                record_trace(trace_id, "intent_understanding", "OrcaRouter",
+                             understanding.get("status", "not_configured" if result.get("status") == "not_configured" else "not_attempted"),
+                             model_route=intent_route.get("model_route"),
+                             tier=intent_route.get("tier"), score=intent_route.get("score"),
+                             error_code=trace_error_code(understanding.get("message")))
+                if result.get("retrieval_method") or result.get("status") in ("no_sources", "no_evidence", "retrieval_error"):
+                    record_trace(trace_id, "document_retrieval", "local_policy_store",
+                                 result.get("status", "completed"),
+                                 evidence_count=len(result.get("citations", [])),
+                                 retrieval_method=result.get("retrieval_method"))
+                generated = result.get("status") == "success"
+                record_trace(trace_id, "grounded_answer_generation", "OrcaRouter",
+                             "completed" if generated else "not_run" if result.get("status") in ("no_sources", "no_evidence", "not_configured", "dependency_missing") else "failed",
+                             model_route=routing.get("model_route"), tier=routing.get("tier"),
+                             score=routing.get("score"),
+                             error_code=trace_error_code(result.get("diagnostic_error") or result.get("answer")))
+                for internal_field in ("model", "routing", "intent_understanding", "diagnostic_error"):
+                    result.pop(internal_field, None)
+                result["citations"] = [{key: citation[key] for key in ("reference", "title", "location", "text", "cited") if key in citation}
+                                       for citation in result.get("citations", [])]
+                result["status"] = "success" if generated else "needs_attention"
             elif self.path == "/api/search":
                 request = SearchRequest.model_validate(payload)
                 if request.usage_mode != "demo" or request.company_id is not None:
@@ -225,6 +291,44 @@ class Handler(BaseHTTPRequestHandler):
             elif self.path == "/api/intent":
                 request = NaturalLanguageInput.model_validate(payload)
                 result = parse_text(request.text, base_time=datetime.fromisoformat(request.base_time))
+                extracted = result.get("trip")
+                fields = ({key: extracted.get(key) for key in
+                           ("origin", "destination", "departure_at", "arrive_by", "return_by", "purpose", "travelers", "lodging_required")}
+                          if extracted else {})
+                understanding = interpret_intent(request.text, fields=fields)
+                result["model_api_status"] = understanding["status"]
+                result["llm_understanding"] = understanding
+                trace_id = new_trace_id()
+                routing = understanding.get("routing") or {}
+                record_trace(trace_id, "structured_field_extraction", "local_rule_parser",
+                             "completed" if extracted else "needs_information",
+                             detail=f"extracted_fields={len(fields)}; missing_fields={len(result.get('missing_fields', []))}")
+                record_routing(trace_id, routing)
+                record_trace(trace_id, "intent_understanding", "OrcaRouter", understanding["status"],
+                             model_route=routing.get("model_route"), tier=routing.get("tier"),
+                             score=routing.get("score"),
+                             error_code=trace_error_code(understanding.get("message")))
+                result.pop("model_api_status", None)
+                result["llm_understanding"] = {"summary": understanding.get("summary"),
+                                               "questions": understanding.get("questions", [])}
+            elif self.path == "/api/intent/extract":
+                request = NaturalLanguageInput.model_validate(payload)
+                result = parse_text(request.text, base_time=datetime.fromisoformat(request.base_time))
+                result.pop("model_api_status", None)
+            elif self.path == "/api/simulation/offers":
+                trip = TripRequest.model_validate(payload)
+                validation = validate_request(trip)
+                if validation["status"] != "ready":
+                    return self.reply(400, {"status": validation["status"], "message": validation["question"],
+                                            "missing_fields": validation["missing_fields"]})
+                result = create_simulated_offers(trip)
+                trace_id = new_trace_id()
+                for provider_event in result.get("provider_events", []):
+                    record_trace(trace_id, "offer_data_generation", provider_event["provider"],
+                                 provider_event["status"], data_kind="simulation",
+                                 source=provider_event.get("source"), detail="Synthetic data; no live provider request was made.")
+                result.pop("provider_events", None)
+                result.pop("references", None)
             elif self.path == "/api/rules":
                 request = RuleRequest.model_validate(payload)
                 if request.usage_mode != "demo" or request.company_id is not None:
@@ -253,11 +357,25 @@ class Handler(BaseHTTPRequestHandler):
                         document_ids=list(dict.fromkeys(r.document_id for r in records)),
                         snapshot_ids=[r.snapshot_id for r in records], usage_mode="demo",
                         query=" ".join(part for part in query_parts if part)) if records else None
-                    result = run(request.trip, request.plans, self.server.root / "output/runs",
-                                 policy_request, self.server.store if policy_request else None)
+                result = run(request.trip, request.plans, self.server.root / "output/runs",
+                             policy_request, self.server.store if policy_request else None)
+                trace_id = new_trace_id()
+                data_kind = "simulation" if request.plans and all(plan.data_kind == "simulation" for plan in request.plans) else "input"
+                for workflow_event in result.get("events", []):
+                    record_trace(trace_id, workflow_event["step"], "local_workflow",
+                                 workflow_event["status"], data_kind=data_kind,
+                                 detail=workflow_event["message"])
+                result.pop("events", None)
+                result.pop("execution_id", None)
+                result.pop("elapsed_seconds", None)
+            elif self.path == "/api/email/generate":
+                request = EmailGenerateInput.model_validate(payload)
+                result = generate_email(**request.model_dump())
             elif self.path in ("/api/draft", "/api/draft/export"):
                 request = DraftInput.model_validate(payload)
                 result = build_draft(request.trip, request.plan, request.recipient)
+                record_trace(new_trace_id(), "approval_email_draft", "local_template", "created",
+                             data_kind=request.plan.data_kind)
                 if self.path.endswith("/export"):
                     save_draft(result, self.server.root / "output/drafts")
                     result["download_url"] = "/api/drafts/" + result["confirmation_fingerprint"] + ".eml"

@@ -19,4 +19,8 @@
 - `tools/`：航班、列车、酒店等外部工具适配器；尚未配置的工具不会被描述为实时数据。
 - `static/`、`templates/`：网页界面。
 
-免费试运行的模型标识默认为 `orcarouter/free`。设置 `ORCAROUTER_API_KEY` 后即可调用；`ORCAROUTER_MODEL` 可在服务环境中覆盖默认值。不要把密钥存进仓库。
+模型分流定义在 `config/llm_tiers.json`，免费默认路由为 `orcarouter/free`。设置 `ORCAROUTER_API_KEY` 只表示应用可以尝试发出请求；工作区资格和额度仍可能拒绝免费生成。`ORCAROUTER_MODEL` 可在服务环境中覆盖默认模型。
+
+OrcaRouter 在 Agent 全流程中的职责、A/B/C/D 评分公式、免费 API 验证结果和模拟数据算法见 [`ORCAROUTER_AGENT_INTERNAL.md`](ORCAROUTER_AGENT_INTERNAL.md)。运行时诊断写入被 Git 忽略的 `output/agent-traces/agent-trace.jsonl`，不通过用户页面展示，不记录 API Key、对话正文或资料原文。不要把密钥存进仓库。
+
+东京—大阪出差案例、用户提供的旅费规程截图解读、五个路演维度的证据设计，以及真实数据接入限制见 [`PRESELECTION_DEMO.md`](PRESELECTION_DEMO.md)。该文件为项目组内部准备材料，不作为已验证的公司规程或竞赛官方评分标准。
