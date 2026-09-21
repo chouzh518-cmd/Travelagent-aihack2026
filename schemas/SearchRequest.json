@@ -1,0 +1,67 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "company_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Company Id"
+    },
+    "document_ids": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Document Ids",
+      "type": "array"
+    },
+    "snapshot_ids": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Snapshot Ids",
+      "type": "array"
+    },
+    "usage_mode": {
+      "enum": [
+        "demo",
+        "production"
+      ],
+      "title": "Usage Mode",
+      "type": "string"
+    },
+    "query": {
+      "minLength": 1,
+      "title": "Query",
+      "type": "string"
+    },
+    "limit": {
+      "default": 5,
+      "maximum": 20,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "company_id",
+    "document_ids",
+    "snapshot_ids",
+    "usage_mode",
+    "query"
+  ],
+  "title": "SearchRequest",
+  "type": "object"
+}

@@ -1,0 +1,243 @@
+{
+  "$defs": {
+    "CostItem": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "minLength": 1,
+          "title": "内容",
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "transport",
+            "hotel",
+            "transfer",
+            "per_diem"
+          ],
+          "title": "費用区分",
+          "type": "string"
+        },
+        "currency": {
+          "const": "JPY",
+          "title": "通貨",
+          "type": "string"
+        },
+        "unit_amount": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "単価"
+        },
+        "quantity": {
+          "minimum": 1,
+          "title": "数量",
+          "type": "integer"
+        },
+        "unit": {
+          "minLength": 1,
+          "title": "単位",
+          "type": "string"
+        },
+        "taxes_included": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "税込み"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "出典",
+          "type": "string"
+        },
+        "queried_at": {
+          "title": "確認日時",
+          "type": "string"
+        }
+      },
+      "required": [
+        "description",
+        "category",
+        "currency",
+        "unit_amount",
+        "quantity",
+        "unit",
+        "taxes_included",
+        "source",
+        "queried_at"
+      ],
+      "title": "費用項目",
+      "type": "object"
+    },
+    "Leg": {
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "enum": [
+            "outbound",
+            "return"
+          ],
+          "title": "方向",
+          "type": "string"
+        },
+        "mode": {
+          "minLength": 1,
+          "title": "移動手段",
+          "type": "string"
+        },
+        "origin": {
+          "minLength": 1,
+          "title": "出発地",
+          "type": "string"
+        },
+        "destination": {
+          "minLength": 1,
+          "title": "目的地",
+          "type": "string"
+        },
+        "departure_at": {
+          "title": "出発日時",
+          "type": "string"
+        },
+        "arrival_at": {
+          "title": "到着日時",
+          "type": "string"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "出典",
+          "type": "string"
+        }
+      },
+      "required": [
+        "direction",
+        "mode",
+        "origin",
+        "destination",
+        "departure_at",
+        "arrival_at",
+        "source"
+      ],
+      "title": "移動区間",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "スキーマバージョン",
+      "type": "string"
+    },
+    "plan_id": {
+      "minLength": 1,
+      "title": "見積り ID",
+      "type": "string"
+    },
+    "trip_id": {
+      "minLength": 1,
+      "title": "申請 ID",
+      "type": "string"
+    },
+    "version": {
+      "minLength": 1,
+      "title": "版",
+      "type": "string"
+    },
+    "data_kind": {
+      "enum": [
+        "real",
+        "simulation"
+      ],
+      "title": "データ区分",
+      "type": "string"
+    },
+    "available": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "予約可否"
+    },
+    "valid_until": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "有効期限"
+    },
+    "source": {
+      "minLength": 1,
+      "title": "出典",
+      "type": "string"
+    },
+    "queried_at": {
+      "title": "確認日時",
+      "type": "string"
+    },
+    "legs": {
+      "items": {
+        "$ref": "#/$defs/Leg"
+      },
+      "title": "移動区間",
+      "type": "array"
+    },
+    "costs": {
+      "items": {
+        "$ref": "#/$defs/CostItem"
+      },
+      "title": "費用",
+      "type": "array"
+    },
+    "zero_cost_reasons": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
+        "enum": [
+          "transport",
+          "hotel",
+          "transfer",
+          "per_diem"
+        ]
+      },
+      "title": "費用なしの理由",
+      "type": "object"
+    }
+  },
+  "required": [
+    "plan_id",
+    "trip_id",
+    "version",
+    "data_kind",
+    "available",
+    "valid_until",
+    "source",
+    "queried_at",
+    "legs",
+    "costs",
+    "zero_cost_reasons"
+  ],
+  "title": "見積り入力",
+  "type": "object"
+}

@@ -1,0 +1,55 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "enum": [
+        "success",
+        "not_configured",
+        "invalid_input",
+        "failed",
+        "no_results"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "source": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Source"
+    },
+    "queried_at": {
+      "title": "Queried At",
+      "type": "string"
+    },
+    "data": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Data",
+      "type": "array"
+    },
+    "issues": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Issues",
+      "type": "array"
+    }
+  },
+  "required": [
+    "status",
+    "source",
+    "queried_at",
+    "data",
+    "issues"
+  ],
+  "title": "ToolResult",
+  "type": "object"
+}

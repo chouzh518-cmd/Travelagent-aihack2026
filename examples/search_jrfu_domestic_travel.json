@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "company_id": null,
+  "document_ids": [
+    "jrfu_domestic_travel"
+  ],
+  "snapshot_ids": [
+    "c4cd8e394d3fdf65f4d6db80890031bd12ead334066c8dd2b687cb3f18eb4f42"
+  ],
+  "usage_mode": "demo",
+  "query": "宿泊費",
+  "limit": 5
+}

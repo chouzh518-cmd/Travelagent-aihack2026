@@ -1,0 +1,174 @@
+{
+  "$defs": {
+    "ExtractionOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "html_selector": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Html Selector"
+        },
+        "start_heading": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Heading"
+        },
+        "end_heading": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Heading"
+        }
+      },
+      "title": "ExtractionOptions",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "pdf",
+            "docx",
+            "html",
+            "png",
+            "jpg",
+            "jpeg",
+            "tif",
+            "tiff",
+            "bmp",
+            "webp"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Url"
+        },
+        "file_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "File Path"
+        }
+      },
+      "required": [
+        "type",
+        "url",
+        "file_path"
+      ],
+      "title": "Source",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "document_id": {
+      "minLength": 1,
+      "title": "Document Id",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "document_kind": {
+      "enum": [
+        "policy",
+        "template"
+      ],
+      "title": "Document Kind",
+      "type": "string"
+    },
+    "issuer_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Issuer Name"
+    },
+    "policy_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Policy Version"
+    },
+    "revision_date": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Revision Date"
+    },
+    "source": {
+      "$ref": "#/$defs/Source"
+    },
+    "extraction": {
+      "$ref": "#/$defs/ExtractionOptions"
+    }
+  },
+  "required": [
+    "document_id",
+    "title",
+    "document_kind",
+    "issuer_name",
+    "policy_version",
+    "revision_date",
+    "source"
+  ],
+  "title": "ImportSpec",
+  "type": "object"
+}

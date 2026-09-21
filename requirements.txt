@@ -1,0 +1,12 @@
+chromadb==1.5.9
+beautifulsoup4==4.15.0
+requests==2.34.2
+pdfplumber==0.11.9
+python-docx==1.2.0
+pydantic==2.13.5
+rapidocr==3.9.2
+onnxruntime==1.30.0
+PyMuPDF==1.28.2
+fastembed==0.8.0
+llama-index-core==0.14.24
+llama-index-llms-openai-like==0.8.0

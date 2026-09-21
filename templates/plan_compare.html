@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ja">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f5f2ea"><title>旅程 | 出張ワークスペース</title><link rel="stylesheet" href="/static/app.css"><script src="/static/app.js" defer></script></head>
+<body>
+<div id="access-gate" class="access-gate" hidden><form id="access-form" class="access-card"><span class="eyebrow">チームアクセス</span><h1>チーム資料ライブラリ</h1><p>管理者から案内されたアクセスコードを入力してください。</p><label for="access-password">アクセスコード</label><input id="access-password" type="password" autocomplete="current-password" required><p id="access-error" class="issue" hidden></p><button class="primary" type="submit">ライブラリを開く →</button></form></div>
+<aside class="sidebar">
+  <a class="brand" href="/" aria-label="旅程 ホーム"><span class="brand-mark">↗</span><span>旅程<small>出張管理</small></span></a>
+  <div class="side-label">出張アシスタント</div>
+  <nav aria-label="作業メニュー">
+    <button data-tab="agent" class="nav active" aria-current="page"><span>01</span>AI相談<span class="nav-arrow">↗</span></button>
+    <button data-tab="policies" class="nav"><span>02</span>資料ライブラリ</button>
+    <button data-tab="trip" class="nav"><span>03</span>出張を申請</button>
+    <button data-tab="plans" class="nav"><span>04</span>料金を比較</button>
+    <button data-tab="mail" class="nav"><span>05</span>承認メール</button>
+  </nav>
+</aside>
+<main>
+  <header><span id="breadcrumb">資料ライブラリ</span><span id="connection-status" class="connection-status" data-state="loading"><i></i><span>資料ライブラリに接続中</span></span></header>
+  <div id="message" class="message" role="status" aria-live="polite" hidden></div>
+  <section id="agent" class="page">
+    <div class="page-heading agent-heading"><div class="eyebrow">出張計画アシスタント</div><h1>資料と希望から、出張プランを提案。</h1><p>社内規程や参考資料を登録し、出張の目的、日程、希望を入力してください。回答には資料の原文を引用します。最新の料金や運行情報を確認できない場合は、要確認として表示します。</p></div>
+    <div class="chat-layout">
+      <section class="paper chat-card" aria-label="出張計画アシスタントとの会話">
+        <div class="chat-topline"><span class="agent-mark">旅</span><div><strong>旅程 AIアシスタント</strong><small id="agent-status">モデルと資料ライブラリを確認中…</small></div><button id="new-chat" class="text-button" type="button">新しい会話</button></div>
+        <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions text">
+          <article class="chat-message assistant-message"><span class="message-author">旅程 AI</span><p>こんにちは。まず出張規程、予算資料、行程の参考資料を登録してください。続けて出発地、目的地、日程、出張目的、希望を入力すると、根拠となる資料を示しながら提案します。</p><p class="help">例：「登録済みの出張規程に基づき、来週の東京発・大阪一泊二日の顧客訪問プランを作成してください。予算上限も確認してください。」</p></article>
+        </div>
+        <div id="chat-upload-state" class="chat-upload-state" role="status" hidden></div>
+        <form id="chat-form" class="chat-composer">
+          <label class="attach-button" for="chat-file">＋ 資料を追加<input id="chat-file" type="file" accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/tiff,image/bmp,image/webp,.pdf,.docx,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp"></label>
+          <label class="visually-hidden" for="chat-input">出張の希望または質問</label>
+          <textarea id="chat-input" rows="3" maxlength="4000" placeholder="出張の予定や規程について入力してください……" required></textarea>
+          <div class="composer-footer"><span class="help">Enter で送信 · Shift + Enter で改行</span><div><button id="export-proposal" class="secondary" type="button" disabled>提案書を出力</button><button id="send-chat" class="primary" type="submit">送信 ↗</button></div></div>
+        </form>
+      </section>
+      <aside class="paper chat-library"><div class="section-heading"><h2>今回利用できる資料</h2><span id="chat-source-count">0 件</span></div><p class="help">読み取りとライブラリへの登録が完了した資料を会話に利用します。</p><div id="chat-sources" class="chat-sources"><p class="empty-source">資料がありません。PDF または画像を追加してください。</p></div><button class="text-button library-link" type="button" data-tab="policies">すべての資料を管理 →</button><div class="plan-note"><span class="note-mark">i</span><p>提案に含まれる規程の説明は登録済み資料に基づきます。最新の交通情報、宿泊料金、予約状況は正式な見積りで確認してください。</p></div></aside>
+    </div>
+  </section>
+  <section id="policies" class="page" hidden>
+    <div class="hero"><div><div class="eyebrow">規程ライブラリ</div><h1>規程資料を、<br>ここで管理する。</h1><p>資料を追加・削除できます。<br>出張申請では登録資料をバックエンドで利用します。</p></div><div class="hero-stamp"><span>資料を管理</span><strong>規</strong><span>出張申請に活用</span></div></div>
+    <section class="paper upload-panel" aria-labelledby="upload-title"><div class="section-heading"><div><span class="eyebrow">資料を追加</span><h2 id="upload-title">規程資料を追加</h2></div></div><p>追加した資料はローカルのベクトルライブラリに登録し、出張申請の処理中にバックエンドで利用します。</p><form id="source-upload"><label for="source-file">PDF、DOCX または画像ファイル</label><div class="upload-row"><input id="source-file" type="file" accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/tiff,image/bmp,image/webp,.pdf,.docx,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp" required><button class="primary" type="submit">読み取って追加 →</button></div></form><p class="help">対応形式：PDF、DOCX、PNG、JPG、TIFF、BMP、WebP · 最大 25 MiB · スキャン資料はローカル OCR で読み取ります。認識結果を原文と照合してください。</p><div id="upload-result" class="notice" hidden></div><details id="ocr-preview" class="ocr-preview" hidden><summary>抽出したテキストを表示</summary><pre id="ocr-text"></pre></details></section>
+    <div class="section-heading"><h2>規程ライブラリ</h2><span id="source-count">資料を読み込み中…</span></div>
+    <div id="sources" class="sources source-library" aria-label="登録済み規程資料"></div>
+  </section>
+  <section id="trip" class="page" hidden>
+    <div class="page-heading"><div class="eyebrow">出張申請</div><h1>出張内容を入力する。</h1><p>確定した場所と日時を入力して、見積りを比較します。</p></div>
+    <div class="paper"><div class="section-heading"><h2>文章から入力</h2><span class="badge">記載内容のみ抽出</span></div><label for="intent-text">出張内容を日本語で入力</label><div class="search-line"><input id="intent-text" maxlength="4000" placeholder="例：来週水曜日に東京から大阪へ日帰り出張、顧客訪問" autocomplete="off"><button type="button" class="primary" id="parse-intent">入力欄に反映 →</button></div><p class="help">相対日は画面で選択したタイムゾーンから計算します。未記載の人数や時刻は推測しません。</p><div id="intent-result" class="notice" hidden></div></div>
+    <form id="trip-form" class="paper"><div class="section-heading"><h2>出張申請</h2><button type="button" id="download-trip" class="text-button">申請データを保存 ↓</button></div>
+      <p class="help">申請番号：<code id="trip-id"></code> · 見積りデータはこの番号に紐づけます。</p>
+      <div class="form-grid">
+        <label>出発地<input name="origin" autocomplete="off" placeholder="実際の出発地"></label>
+        <label>目的地<input name="destination" autocomplete="off" placeholder="見積りの地点と一致させる"></label>
+        <label>出発日時<input name="departure_at" type="datetime-local"></label>
+        <label>到着期限<input name="arrive_by" type="datetime-local"></label>
+        <label>帰着期限<input name="return_by" type="datetime-local"></label>
+        <label>日時のタイムゾーン<select name="timezone"><option value="+09:00">日本標準時（UTC+09:00）</option><option value="+08:00">中国標準時（UTC+08:00）</option><option value="+00:00">協定世界時（UTC+00:00）</option></select></label>
+        <label>人数<input name="travelers" type="number" min="1" step="1"></label>
+        <label>宿泊<select name="lodging_required"><option value="">選択してください</option><option value="yes">必要</option><option value="no">不要</option></select></label>
+        <label class="wide">出張目的<textarea name="purpose" rows="3" placeholder="出張の目的を入力"></textarea></label>
+      </div>
+      <label class="check"><input name="confirmed" type="checkbox">入力した場所、日時、内容を確認しました</label>
+      <div class="form-footer"><p class="help">内容を変更すると確認状態と選択済み見積りは解除されます。</p><button class="primary" type="submit">入力内容を確認 <span>→</span></button></div>
+      <div id="trip-result" class="notice" hidden></div>
+    </form>
+  </section>
+  <section id="plans" class="page" hidden>
+    <div class="page-heading"><div class="eyebrow">データ · 計算 · 比較</div><h1>見積りを読み込み、比較する。</h1><p>外部検索の代わりに、確認済みデータを共通 JSON 形式で取り込みます。</p></div>
+    <div class="paper"><div class="section-heading"><h2>見積りデータの取り込み</h2><span id="plan-count">0 件</span></div><div class="upload-row"><label class="upload">JSON ファイルを選択<input id="plan-file" type="file" accept="application/json,.json"></label><button id="download-plan-schema" class="text-button" type="button">入力形式をダウンロード ↓</button><button id="run-plans" class="primary">計算して比較 →</button></div><p class="help">共通形式の見積り配列を読み込みます。料金、空席、税金の情報は出典とともに入力してください。</p><div id="plan-message" class="notice" hidden></div></div>
+    <div id="plan-results"><div class="empty paper"><span>↔</span><h3>見積りはまだありません</h3><p>出張内容を確認し、JSON ファイルを読み込んでください。</p></div></div>
+  </section>
+  <section id="mail" class="page" hidden>
+    <div class="page-heading"><div class="eyebrow">承認メール</div><h1>承認依頼を下書きする。</h1><p>メール文面を確認して保存できます。送信機能は接続されていません。</p></div>
+    <div class="paper"><p id="selection">見積りが未選択です。比較画面で見積りを選択してください。</p><form id="draft-form"><label for="recipient">承認者のメールアドレス</label><div class="search-line"><input id="recipient" type="email" placeholder="確認済みの宛先を入力" required><button class="primary" id="build-draft" disabled>下書きを作成 ↗</button></div></form>
+    <div id="draft-view" hidden><div class="section-heading"><h2>メール内容</h2><span class="badge">未送信</span></div><pre id="draft-body"></pre><button id="export-draft" class="primary">メールファイルを保存 ↓</button><p class="help">保存したファイルは送信されません。内容を変更した場合は再作成してください。</p></div></div>
+  </section>
+  <footer><span>旅程 / 出張管理</span></footer>
+</main>
+</body></html>

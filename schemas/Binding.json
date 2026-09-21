@@ -1,0 +1,58 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "company_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Company Id"
+    },
+    "document_id": {
+      "title": "Document Id",
+      "type": "string"
+    },
+    "snapshot_id": {
+      "title": "Snapshot Id",
+      "type": "string"
+    },
+    "usage_mode": {
+      "enum": [
+        "demo",
+        "production"
+      ],
+      "title": "Usage Mode",
+      "type": "string"
+    },
+    "approval_evidence": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Approval Evidence"
+    }
+  },
+  "required": [
+    "company_id",
+    "document_id",
+    "snapshot_id",
+    "usage_mode",
+    "approval_evidence"
+  ],
+  "title": "Binding",
+  "type": "object"
+}

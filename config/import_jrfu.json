@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "document_id": "jrfu_domestic_travel",
+  "title": "役員等国内出張旅費規程",
+  "document_kind": "policy",
+  "issuer_name": "公益財団法人日本ラグビーフットボール協会",
+  "policy_version": null,
+  "revision_date": "2024-12-11",
+  "source": {
+    "type": "pdf",
+    "url": "https://rugby-japan.s3.ap-northeast-1.amazonaws.com/file/html/187430_675a544e5d592.pdf",
+    "file_path": "data/policies/sources/jrfu_domestic_travel.pdf"
+  },
+  "extraction": {}
+}

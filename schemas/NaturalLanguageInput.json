@@ -1,0 +1,21 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "text": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Text",
+      "type": "string"
+    },
+    "base_time": {
+      "title": "Base Time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "text",
+    "base_time"
+  ],
+  "title": "NaturalLanguageInput",
+  "type": "object"
+}

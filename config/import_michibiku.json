@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "document_id": "michibiku_travel_template",
+  "title": "出張旅費規程～テンプレート～",
+  "document_kind": "template",
+  "issuer_name": "ミチビク株式会社",
+  "policy_version": null,
+  "revision_date": null,
+  "source": {
+    "type": "html",
+    "url": "https://michibiku.co.jp/board-dx/template/643krqrpd7l/",
+    "file_path": "data/policies/sources/michibiku_travel_template.html"
+  },
+  "extraction": {
+    "html_selector": ".media-body",
+    "start_heading": "出張旅費規程テンプレート",
+    "end_heading": "取締役会の運営管理プラットフォーム「michibiku/ミチビク」"
+  }
+}

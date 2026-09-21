@@ -1,0 +1,10 @@
+{
+  "flight": {"status": "not_configured"},
+  "train": {"status": "not_configured"},
+  "hotel": {"status": "not_configured"},
+  "transfer": {"status": "not_configured"},
+  "weather": {"status": "not_configured"},
+  "calendar": {"status": "not_configured"},
+  "model": {"status": "not_configured"},
+  "email": {"status": "not_configured"}
+}
