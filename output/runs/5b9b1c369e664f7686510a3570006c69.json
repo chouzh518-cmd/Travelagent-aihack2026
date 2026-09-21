@@ -1,0 +1,39 @@
+{
+  "execution_id": "5b9b1c369e664f7686510a3570006c69",
+  "trip_id": "6a72b3f7-4802-4679-baa0-adf903525665",
+  "status": "needs_offers",
+  "elapsed_seconds": 0.0,
+  "events": [
+    {
+      "queried_at": "2026-09-21T05:16:00.683512+00:00",
+      "step": "offers",
+      "status": "generating",
+      "message": "外部APIから見積りデータを自動取得しています..."
+    },
+    {
+      "queried_at": "2026-09-21T05:16:00.683763+00:00",
+      "step": "offers",
+      "status": "failed",
+      "message": "數據載入失敗: Expecting value: line 1 column 1 (char 0)"
+    },
+    {
+      "queried_at": "2026-09-21T05:16:00.683795+00:00",
+      "step": "requirements",
+      "status": "ready",
+      "message": null
+    },
+    {
+      "queried_at": "2026-09-21T05:16:00.683798+00:00",
+      "step": "offers",
+      "status": "not_configured",
+      "message": "確認済みの見積りがありません。処理を停止しました。"
+    }
+  ],
+  "comparison": null,
+  "validation": {
+    "status": "ready",
+    "missing_fields": [],
+    "question": null
+  },
+  "policy": null
+}

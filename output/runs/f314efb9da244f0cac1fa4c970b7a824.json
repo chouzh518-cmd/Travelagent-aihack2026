@@ -1,0 +1,42 @@
+{
+  "execution_id": "f314efb9da244f0cac1fa4c970b7a824",
+  "trip_id": "417aa7d0-a6a4-469a-9c28-44d0a49bb53c",
+  "status": "needs_information",
+  "elapsed_seconds": 0.001,
+  "events": [
+    {
+      "queried_at": "2026-09-21T05:32:41.387601+00:00",
+      "step": "offers",
+      "status": "generating",
+      "message": "外部APIから見積りデータを自動取得しています..."
+    },
+    {
+      "queried_at": "2026-09-21T05:32:41.388577+00:00",
+      "step": "offers",
+      "status": "completed",
+      "message": "已成功載入 3 件模擬報價數據。"
+    },
+    {
+      "queried_at": "2026-09-21T05:32:41.388620+00:00",
+      "step": "requirements",
+      "status": "needs_information",
+      "message": "次の項目を入力してください：出発地、目的地、出発日時、帰着日時、到着期限、出張目的、人数、宿泊の要否。"
+    }
+  ],
+  "comparison": null,
+  "validation": {
+    "status": "needs_information",
+    "missing_fields": [
+      "origin",
+      "destination",
+      "departure_at",
+      "return_by",
+      "arrive_by",
+      "purpose",
+      "travelers",
+      "lodging_required"
+    ],
+    "question": "次の項目を入力してください：出発地、目的地、出発日時、帰着日時、到着期限、出張目的、人数、宿泊の要否。"
+  },
+  "policy": null
+}

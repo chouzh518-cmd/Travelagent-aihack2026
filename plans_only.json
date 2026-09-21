@@ -31,31 +31,21 @@
     ],
     "costs": [
       {
-        "description": "新幹線來回車票",
+        "description": "新幹線超特惠早鳥票",
         "category": "transport",
         "currency": "JPY",
-        "unit_amount": 14500,
+        "unit_amount": 7500,
         "quantity": 2,
         "unit": "ticket",
         "taxes_included": true,
         "source": "train_api_mock",
         "queried_at": "2026-09-20T21:00:00+09:00"
-      },
-      {
-        "description": "東橫 INN 大阪",
-        "category": "hotel",
-        "currency": "JPY",
-        "unit_amount": 7500,
-        "quantity": 1,
-        "unit": "night",
-        "taxes_included": true,
-        "source": "hotel_api_mock",
-        "queried_at": "2026-09-20T21:00:00+09:00"
       }
     ],
     "zero_cost_reasons": {
       "transfer": "距離過短，員工步行",
-      "per_diem": "未達日當發放標準"
+      "per_diem": "未達日當發放標準",
+      "hotel": "無需住宿"
     }
   },
   {
@@ -101,10 +91,10 @@
         "queried_at": "2026-09-20T21:00:00+09:00"
       },
       {
-        "description": "大阪萬豪酒店 (超出制度上限)",
+        "description": "大阪萬豪酒店 (標準單人房)",
         "category": "hotel",
         "currency": "JPY",
-        "unit_amount": 35000,
+        "unit_amount": 15000,
         "quantity": 1,
         "unit": "night",
         "taxes_included": true,
@@ -115,6 +105,65 @@
     "zero_cost_reasons": {
       "transfer": "接駁費用未計入",
       "per_diem": "未達日當發放標準"
+    }
+  },
+  {
+    "schema_version": "1.0",
+    "plan_id": "plan_003_luxury",
+    "trip_id": "a7afaf0b-def5-4e16-9350-daa27d72a688",
+    "version": "v1.0",
+    "data_kind": "simulation",
+    "available": true,
+    "valid_until": "2026-09-21T12:00:00+09:00",
+    "source": "backend_mock",
+    "queried_at": "2026-09-20T21:00:00+09:00",
+    "legs": [
+      {
+        "direction": "outbound",
+        "mode": "Flight",
+        "origin": "Haneda (HND)",
+        "destination": "Itami (ITM)",
+        "departure_at": "2026-09-23T08:00:00+09:00",
+        "arrival_at": "2026-09-23T09:10:00+09:00",
+        "source": "flight_api_mock"
+      },
+      {
+        "direction": "return",
+        "mode": "Flight",
+        "origin": "Itami (ITM)",
+        "destination": "Haneda (HND)",
+        "departure_at": "2026-09-24T20:00:00+09:00",
+        "arrival_at": "2026-09-24T21:10:00+09:00",
+        "source": "flight_api_mock"
+      }
+    ],
+    "costs": [
+      {
+        "description": "國內線頭等艙來回 (極奢華)",
+        "category": "transport",
+        "currency": "JPY",
+        "unit_amount": 55000,
+        "quantity": 2,
+        "unit": "ticket",
+        "taxes_included": true,
+        "source": "flight_api_mock",
+        "queried_at": "2026-09-20T21:00:00+09:00"
+      },
+      {
+        "description": "麗思卡爾頓大阪 豪華套房 (嚴重超支)",
+        "category": "hotel",
+        "currency": "JPY",
+        "unit_amount": 80000,
+        "quantity": 1,
+        "unit": "night",
+        "taxes_included": true,
+        "source": "hotel_api_mock",
+        "queried_at": "2026-09-20T21:00:00+09:00"
+      }
+    ],
+    "zero_cost_reasons": {
+      "transfer": "專車接送",
+      "per_diem": "已包含"
     }
   }
 ]

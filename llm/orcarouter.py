@@ -15,15 +15,14 @@ def configured():
 def selected_model():
     return os.environ.get("ORCAROUTER_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
 
-
 def create_llm():
-    api_key = os.environ.get("ORCAROUTER_API_KEY", "").strip()
-    if not api_key:
-        raise RuntimeError("尚未配置 OrcaRouter API Key。请在服务环境中设置 ORCAROUTER_API_KEY。")
+    # 直接硬編碼你嘅 API Key，廢事理得個環境變數
+    api_key = "sk-orca-LV3X7vFLKLetXqIg0YVUlizsWSdjEW3g0PZVFwecGh4"
+    
     try:
         from llama_index.llms.openai_like import OpenAILike
     except ImportError as exc:
-        raise RuntimeError("LlamaIndex OrcaRouter 适配依赖未安装，请重新安装 requirements.txt。") from exc
+        raise RuntimeError("LlamaIndex OrcaRouter 适配依赖未安装...") from exc
     return OpenAILike(
         model=selected_model(),
         api_base=API_BASE,
