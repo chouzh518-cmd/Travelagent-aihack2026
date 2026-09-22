@@ -250,10 +250,14 @@ async function removeUpload(upload) {
 
 function updateComposerActions() {
   const busy = Boolean(state.activeAction || state.uploading || state.mailBusy);
+  const chatInput = byId("chat-input");
+  const chatSend = byId("chat-send");
   const create = byId("create-proposal");
   create.disabled = busy;
   create.textContent = state.activeAction === "proposal" ? "計画書を作成中…" : "計画書を作成 →";
-  byId("chat-input").disabled = busy;
+  chatInput.disabled = busy;
+  chatSend.disabled = busy || !chatInput.value.trim();
+  chatSend.textContent = state.activeAction === "chat" ? "相談中…" : "相談を送信 ↑";
   document.querySelectorAll(".trip-condition-input").forEach(input => { input.disabled = busy; });
   byId("chat-file").disabled = busy;
   byId("proposal-followup-submit").disabled = busy;
@@ -450,6 +454,11 @@ async function importFile(file) {
 }
 
 byId("chat-input").addEventListener("input", updateComposerActions);
+byId("chat-input").addEventListener("keydown", event => {
+  if (event.key !== "Enter" || event.shiftKey || event.isComposing || event.keyCode === 229) return;
+  event.preventDefault();
+  if (!byId("chat-send").disabled) byId("chat-form").requestSubmit();
+});
 document.querySelectorAll(".trip-condition-input").forEach(input => input.addEventListener("input", updateComposerActions));
 byId("trip-lodging-input").addEventListener("change", updateComposerActions);
 

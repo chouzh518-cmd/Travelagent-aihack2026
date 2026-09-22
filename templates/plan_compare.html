@@ -37,23 +37,22 @@
       <button id="next-page" class="bookmark-arrow" type="button" aria-label="次のページへ" disabled><span>次へ</span><span aria-hidden="true">→</span></button>
     </nav>
 
-    <section class="document-center" aria-labelledby="document-center-title">
-      <div class="document-center-heading">
-        <div><span class="eyebrow">資料管理</span><h2 id="document-center-title">相談に使う資料</h2>
-          <p>資料を追加すると、この会話で内容を検索して根拠を確認できます。</p></div>
-        <div class="upload-control"><label class="attach-button" for="chat-file">＋ 資料を追加<input id="chat-file" type="file" accept=".md,.pdf,.docx,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/tiff,image/bmp,image/webp" multiple></label>
-          <details class="help-tip"><summary aria-label="対応ファイル形式">?</summary><div role="tooltip">Markdown、PDF、DOCX、PNG、JPG、TIFF、BMP、WebP に対応しています。追加した資料はこの相談から削除できます。</div></details></div>
-      </div>
-      <div id="chat-upload-state" class="chat-upload-state" role="status" hidden></div>
-      <div id="chat-upload-list" class="chat-upload-list" role="list" hidden aria-label="追加した資料"></div>
-    </section>
-
     <section id="work-area" class="work-area" aria-label="出張の相談と計画書">
       <div class="conversation-column">
         <div class="section-title-row">
           <div><span class="eyebrow">旅程設計 / AIアシスタント</span><div class="labeled-help section-help"><h2>何をお手伝いしましょうか？</h2><details class="help-tip"><summary aria-label="相談方法">?</summary><div role="tooltip">出張条件の整理、行程案、規程の確認などを相談できます。条件が分からない場合も、分かる範囲から一緒に整理します。</div></details></div></div>
           <span id="assistant-status" class="small-status">会話を始められます</span>
         </div>
+        <section class="document-center" aria-labelledby="document-center-title">
+          <div class="document-center-heading">
+            <div><span class="eyebrow">資料管理</span><h2 id="document-center-title">相談に使う資料</h2>
+              <p>資料を追加すると、この会話で内容を検索して根拠を確認できます。</p></div>
+            <div class="upload-control"><label class="attach-button" for="chat-file">＋ 資料を追加<input id="chat-file" type="file" accept=".md,.pdf,.docx,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/tiff,image/bmp,image/webp" multiple></label>
+              <details class="help-tip"><summary aria-label="対応ファイル形式">?</summary><div role="tooltip">Markdown、PDF、DOCX、PNG、JPG、TIFF、BMP、WebP に対応しています。追加した資料はこの相談から削除できます。</div></details></div>
+          </div>
+          <div id="chat-upload-state" class="chat-upload-state" role="status" hidden></div>
+          <div id="chat-upload-list" class="chat-upload-list" role="list" hidden aria-label="追加した資料"></div>
+        </section>
         <section class="conversation-card" aria-label="出張計画アシスタントとの会話">
           <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions text">
             <article class="chat-message assistant-message"><span class="message-author">旅程 AI</span><p>こんにちは。出張について分かる範囲で入力してください。条件を確認しながら計画書を作成します。</p></article>
@@ -78,6 +77,7 @@
             </section>
             <div class="composer-footer">
               <div class="composer-primary-actions">
+                <button id="chat-send" class="secondary" type="submit">相談を送信 ↑</button>
                 <button id="create-proposal" class="primary" type="button">計画書を作成 →</button>
                 <button id="generate-email" class="secondary" type="button">生成メール ↓</button>
               </div>
