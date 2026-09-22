@@ -37,7 +37,7 @@ def trip():
     return TripRequest(trip_id="unit-test", company_id=None, employee_id=None,
                        origin="起点", destination="终点", departure_at="2026-09-20T08:00:00+09:00",
                        arrive_by="2026-09-20T12:00:00+09:00", return_by="2026-09-21T20:00:00+09:00",
-                       purpose="技术边界测试", travelers=1, lodging_required=True, confirmed=True)
+                       purpose="技术边界测试", lodging_required=True, confirmed=True)
 
 
 def plan():
@@ -188,17 +188,15 @@ class BusinessTests(unittest.TestCase):
         self.assertEqual(result["trip"]["destination"], "大阪")
         self.assertEqual(result["date_context"]["departure_date"], "2026-09-30")
         self.assertEqual(result["trip"]["departure_at"], None)
-        self.assertIn("travelers", result["missing_fields"])
         self.assertEqual(result["trip"]["lodging_required"], False)
 
-    def test_japanese_intent_extracts_route_date_time_party_and_day_return(self):
-        result = parse_text("来週水曜日に東京から大阪へ9時出発、18時に帰着、日帰り、2名で顧客訪問",
+    def test_japanese_intent_extracts_route_date_time_and_day_return(self):
+        result = parse_text("来週水曜日に東京から大阪へ9時出発、18時に帰着、日帰りで顧客訪問",
                             base_time=datetime.fromisoformat("2026-09-21T12:00:00+09:00"))
         self.assertEqual(result["trip"]["origin"], "東京")
         self.assertEqual(result["trip"]["destination"], "大阪")
         self.assertEqual(result["date_context"]["departure_date"], "2026-09-30")
         self.assertEqual(result["date_context"]["return_date"], "2026-09-30")
-        self.assertEqual(result["trip"]["travelers"], 2)
         self.assertEqual(result["trip"]["departure_at"], "2026-09-30T09:00:00+09:00")
         self.assertEqual(result["trip"]["return_by"], "2026-09-30T18:00:00+09:00")
         self.assertIn("arrive_by", result["missing_fields"])
@@ -208,6 +206,13 @@ class BusinessTests(unittest.TestCase):
                             base_time=datetime.fromisoformat("2026-09-21T12:00:00+09:00"))
         self.assertIsNone(result["date_context"]["return_date"])
         self.assertIsNone(result["trip"]["return_by"])
+
+    def test_follow_up_can_set_return_date_and_budget(self):
+        result = parse_text("2026年10月10日に東京から大阪へ8時出発、2026年10月11日に18時帰着、予算30,000円、宿泊",
+                            base_time=datetime.fromisoformat("2026-09-21T12:00:00+09:00"))
+        self.assertEqual(result["trip"]["departure_at"], "2026-10-10T08:00:00+09:00")
+        self.assertEqual(result["trip"]["return_by"], "2026-10-11T18:00:00+09:00")
+        self.assertEqual(result["budget_jpy"], 30000)
 
     def test_naive_datetime_rejected(self):
         raw = trip().model_dump()
@@ -388,7 +393,6 @@ class HttpTests(unittest.TestCase):
         with urlopen(request) as response:
             value = json.load(response)
         self.assertEqual(value["date_context"]["departure_date"], "2026-09-30")
-        self.assertIn("travelers", value["missing_fields"])
 
     def test_rules_api_returns_source_bounded_demo_evidence(self):
         record = next(r for r in self.server.store.list_snapshots() if r.document_id == "jrfu_domestic_travel")

@@ -29,6 +29,9 @@ def atomic_json(path: Path, value):
 
 EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 EMBEDDING_METHOD = "fastembed:" + EMBEDDING_MODEL + ":384d_v1"
+# FastEmbed cosine distance is unbounded for unrelated text; returning the
+# nearest chunk without a floor would fabricate evidence for arbitrary input.
+MAX_SEMANTIC_DISTANCE = 0.75
 
 
 @lru_cache(maxsize=4)
@@ -189,6 +192,8 @@ class PolicyStore:
                     collection = self.client.get_collection("policy_" + record.snapshot_id, embedding_function=None)
                 result = collection.query(query_embeddings=embeddings([request.query], self.root / "models"), n_results=min(len(index), max(request.limit * 3, request.limit)), include=["distances"])
                 for chunk_id, distance in zip(result["ids"][0], result["distances"][0]):
+                    if float(distance) > MAX_SEMANTIC_DISTANCE:
+                        continue
                     chunk = index[chunk_id]
                     related_ids = set()
                     queue = [chunk]

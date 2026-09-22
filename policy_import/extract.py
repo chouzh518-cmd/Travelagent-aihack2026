@@ -292,6 +292,8 @@ def extract(data: bytes, source_type: str, options: ExtractionOptions):
 
 
 def chunk_blocks(blocks: list[Block], snapshot_id: str):
+    if not re.fullmatch(r"[0-9a-f]{64}", snapshot_id):
+        raise ExtractionError("snapshot_id must be a 64-character lowercase hexadecimal digest")
     chunks, current, heading_path = [], None, []
     pending_title = None
 

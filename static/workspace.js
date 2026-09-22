@@ -12,7 +12,7 @@ const fieldLabels = {
   project_name: "出張プロジェクト", origin: "出発地", destination: "目的地",
   budget_jpy: "予算上限", duration_limit_days: "出張期間",
   arrival_deadline: "到着希望時刻", purpose: "出張目的", departure_at: "出発日時",
-  arrive_by: "到着希望日時", return_by: "帰着希望日時", travelers: "出張人数",
+  arrive_by: "到着希望日時", return_by: "帰着希望日時",
   lodging_required: "宿泊",
 };
 
@@ -24,7 +24,7 @@ function syncPageBookmarks() {
   const available = {
     "work-area": true,
     "proposal-panel": Boolean(state.proposal),
-    "email-panel": Boolean(state.project),
+    "email-panel": Boolean(state.proposal?.selectedPlanId),
   };
   const buttons = [...document.querySelectorAll(".page-bookmark")];
   for (const button of buttons) {
@@ -44,18 +44,30 @@ function syncPageBookmarks() {
 }
 
 function setActivePage(pageId) {
+  if (!pageOrder.includes(pageId)) pageId = "work-area";
   activePage = pageId;
+  const onConsultation = pageId === "work-area";
+  const projectStart = byId("project-start");
+  const projectOverview = byId("project-overview");
+  const workArea = byId("work-area");
+  const proposalPanel = byId("proposal-panel");
+  const emailPanel = byId("email-panel");
+  if (projectStart) projectStart.hidden = !onConsultation;
+  if (projectOverview) projectOverview.hidden = !onConsultation || !state.project;
+  if (workArea) workArea.hidden = !onConsultation;
+  if (proposalPanel) proposalPanel.hidden = pageId !== "proposal-panel" || !state.proposal;
+  if (emailPanel) emailPanel.hidden = pageId !== "email-panel" || !state.project || !state.proposal?.selectedPlanId;
   syncPageBookmarks();
 }
 
 function openPage(pageId) {
   if (pageId === "proposal-panel" && !state.proposal) return;
-  if (pageId === "email-panel") {
-    if (!state.project) return;
-    byId("email-panel").hidden = false;
-  }
+  if (pageId === "email-panel" && !state.proposal?.selectedPlanId) return;
   const target = byId(pageId);
-  if (!target || target.hidden) return;
+  // A page is intentionally hidden while another page is active. Do not use
+  // the current `hidden` state as an availability check, otherwise the
+  // previous-page action can never navigate back to the hidden page.
+  if (!target) return;
   setActivePage(pageId);
   target.scrollIntoView({behavior: "smooth", block: "start"});
 }
@@ -67,7 +79,7 @@ byId("previous-page").addEventListener("click", () => {
   const currentIndex = pageOrder.indexOf(activePage);
   for (let index = currentIndex - 1; index >= 0; index -= 1) {
     const target = pageOrder[index];
-    if ((target === "work-area") || (target === "proposal-panel" && state.proposal) || (target === "email-panel" && state.project)) {
+    if ((target === "work-area") || (target === "proposal-panel" && state.proposal) || (target === "email-panel" && state.proposal?.selectedPlanId)) {
       openPage(target);
       return;
     }
@@ -77,7 +89,7 @@ byId("next-page").addEventListener("click", () => {
   const currentIndex = pageOrder.indexOf(activePage);
   for (let index = currentIndex + 1; index < pageOrder.length; index += 1) {
     const target = pageOrder[index];
-    if ((target === "work-area") || (target === "proposal-panel" && state.proposal) || (target === "email-panel" && state.project)) {
+    if ((target === "work-area") || (target === "proposal-panel" && state.proposal) || (target === "email-panel" && state.proposal?.selectedPlanId)) {
       openPage(target);
       return;
     }
@@ -95,7 +107,7 @@ window.addEventListener("scroll", () => {
       .map(element => ({id: element.id, top: element.getBoundingClientRect().top}))
       .filter(item => item.top <= activationLine)
       .sort((a, b) => b.top - a.top);
-    setActivePage(visible[0]?.id || "work-area");
+    if (visible[0]) setActivePage(visible[0].id);
   }, {passive: true});
 }, {passive: true});
 syncPageBookmarks();
@@ -126,6 +138,19 @@ async function api(path, body) {
   return value;
 }
 
+async function deleteApi(path) {
+  const response = await fetch(path, {method: "DELETE", headers: authHeaders()});
+  const value = await response.json();
+  if (response.status === 401) {
+    showAccessGate();
+    const error = new Error(value.message || "チームアクセスコードを入力してください。");
+    error.code = "unauthorized";
+    throw error;
+  }
+  if (!response.ok) throw new Error(value.message || "資料を削除できませんでした。");
+  return value;
+}
+
 function setProjectMessage(message, isError = false) {
   const box = byId("project-message");
   box.textContent = message;
@@ -152,6 +177,48 @@ function clearEmailDraft() {
   byId("email-body").value = "";
 }
 
+function renderUploadList() {
+  const list = byId("chat-upload-list");
+  list.replaceChildren();
+  list.hidden = !state.uploads.length;
+  for (const upload of state.uploads) {
+    const item = node("div", undefined, "chat-upload-item");
+    item.setAttribute("role", "listitem");
+    const title = node("span", upload.title, "chat-upload-title");
+    const remove = node("button", "削除", "chat-upload-remove");
+    remove.type = "button";
+    remove.setAttribute("aria-label", `${upload.title}を削除`);
+    remove.addEventListener("click", () => removeUpload(upload));
+    item.append(title, remove);
+    list.append(item);
+  }
+}
+
+async function removeUpload(upload) {
+  if (state.activeAction || state.uploading || !upload.snapshot_id) return;
+  if (!window.confirm(`${upload.title}をこの会話から削除しますか？資料スナップショットと検索インデックスも削除されます。`)) return;
+  state.uploading = true;
+  updateComposerActions();
+  try {
+    await deleteApi(`/api/documents/${encodeURIComponent(upload.snapshot_id)}`);
+    state.uploads = state.uploads.filter(item => item.snapshot_id !== upload.snapshot_id);
+    renderUploadList();
+    clearProposal();
+    const status = byId("chat-upload-state");
+    status.textContent = `${upload.title}を削除しました。`;
+    status.hidden = false;
+    status.classList.remove("is-error");
+  } catch (error) {
+    const status = byId("chat-upload-state");
+    status.textContent = error.message || String(error);
+    status.hidden = false;
+    status.classList.add("is-error");
+  } finally {
+    state.uploading = false;
+    updateComposerActions();
+  }
+}
+
 function updateComposerActions() {
   const busy = Boolean(state.activeAction || state.uploading || state.mailBusy);
   const hasContext = Boolean(state.project || state.uploads.length);
@@ -160,7 +227,7 @@ function updateComposerActions() {
   const email = byId("generate-email");
   send.disabled = busy || !hasContext || !byId("chat-input").value.trim();
   create.disabled = busy || !state.project;
-  email.disabled = busy || !state.project;
+  email.disabled = busy || !state.proposal?.selectedPlanId;
   send.textContent = state.activeAction === "chat" ? "回答を作成中…" : "会話で相談 ↗";
   create.textContent = state.activeAction === "proposal" ? "計画書を作成中…" : "計画書を作成 →";
   byId("chat-input").disabled = busy;
@@ -190,7 +257,7 @@ function askFollowUpQuestions(missing) {
   if (!newQuestions.length) return false;
   state.followUpAsked.push(...newQuestions);
   const answer = [
-    "計画書を作成しました。ご希望に沿った内容にするため、分かる範囲で次の点を教えてください。",
+    "計画書の作成に必要な条件が未確認です。分かる範囲で次の点を教えてください。",
     ...newQuestions.map(question => `・${question}`),
     "回答を入力して「会話で相談」を押すと、AI が内容を確認します。その後「計画書を作成」を押すと反映します。",
   ].join("\n");
@@ -198,7 +265,6 @@ function askFollowUpQuestions(missing) {
   const messages = byId("chat-messages");
   messages.append(renderAssistantMessage(answer));
   messages.scrollTop = messages.scrollHeight;
-  byId("proposal-panel").after(byId("work-area"));
   byId("work-area").scrollIntoView({behavior: "smooth", block: "start"});
   byId("chat-input").focus();
   return true;
@@ -209,14 +275,13 @@ function displayFieldValue(key, value) {
   if (value === false) return "不要";
   if (key === "budget_jpy" && typeof value === "number") return `¥${value.toLocaleString("ja-JP")}`;
   if (key === "duration_limit_days" && typeof value === "number") return `${value}日以内`;
-  if (key === "travelers" && typeof value === "number") return `${value}名`;
   return String(value);
 }
 
-function displayFileName(path) {
-  const filename = String(path).split(/[\\/]/).pop() || String(path);
-  const extensionIndex = filename.lastIndexOf(".");
-  return extensionIndex > 0 ? filename.slice(0, extensionIndex) : filename;
+function displayUploadName(filename) {
+  const name = String(filename).split(/[\\/]/).pop() || "追加資料";
+  const extensionIndex = name.lastIndexOf(".");
+  return extensionIndex > 0 ? name.slice(0, extensionIndex) : name;
 }
 
 function tokyoIso(date = new Date()) {
@@ -253,8 +318,6 @@ function simulationScenario(fields) {
     returnBy = departureDate + "T20:00:00+09:00";
     assumptions.push("模擬用帰着期限：" + returnBy + "（未入力のため同日 20:00 を例示）");
   }
-  const travelers = Number.isInteger(fields.travelers) && fields.travelers > 0 ? fields.travelers : 1;
-  if (travelers !== fields.travelers) assumptions.push("模擬用人数：1 名（人数未入力のため例示）");
   const lodgingRequired = typeof fields.lodging_required === "boolean" ? fields.lodging_required : false;
   if (lodgingRequired !== fields.lodging_required) assumptions.push("模擬用宿泊：不要（宿泊の要否が未入力のため例示）");
   const purpose = typeof fields.purpose === "string" && fields.purpose.trim() ? fields.purpose : "出張条件の確認";
@@ -264,7 +327,7 @@ function simulationScenario(fields) {
       schema_version: "1.0", trip_id: crypto.randomUUID(), company_id: null, employee_id: null,
       origin: fields.origin || null, destination: fields.destination || null,
       departure_at: departureAt, arrive_by: arriveBy, return_by: returnBy,
-      purpose, travelers, lodging_required: lodgingRequired, confirmed: true,
+      purpose, lodging_required: lodgingRequired, confirmed: true,
     },
     assumptions,
   };
@@ -311,7 +374,6 @@ function renderProject(project) {
     summary.append(
       node("span", source.document_kind === "policy" ? "制度" : "プロジェクト", "source-kind"),
       node("strong", source.title),
-      node("small", displayFileName(source.path)),
     );
     card.append(summary, node("pre", source.content, "source-preview"));
     documents.append(card);
@@ -389,10 +451,11 @@ async function importFile(file) {
   }
   if (!response.ok) throw new Error(result.message || "ファイルを読み取れませんでした。");
   const preview = result.preview || "";
-  state.uploads.push({document_id: result.document_id, title: result.title, content: preview});
+  state.uploads.push({document_id: result.document_id, snapshot_id: result.snapshot_id, title: result.title, content: preview});
+  renderUploadList();
   const status = byId("chat-upload-state");
   clearProposal();
-  status.textContent = `${result.title} を読み込みました。${result.chunk_count} 個のテキストブロックを会話と計画書に利用できます。${result.extraction_status === "partial" ? "認識できない箇所があるため、原文を確認してください。" : ""}`;
+  status.textContent = `${result.title} を読み込みました。${result.chunk_count} 個のテキストブロックを会話と確認処理に利用できます。${result.extraction_status === "partial" ? "認識できない箇所があるため、原文を確認してください。" : ""}`;
   status.hidden = false;
   updateComposerActions();
   return result;
@@ -402,8 +465,11 @@ byId("project-select").addEventListener("change", event => {
   const project = state.projects.find(item => item.project_id === event.target.value);
   setProjectMessage("");
   state.chatMessages = [];
+  state.uploads = [];
   state.followUpAsked = [];
-  byId("proposal-panel").before(byId("work-area"));
+  byId("chat-upload-state").textContent = "";
+  byId("chat-upload-state").hidden = true;
+  renderUploadList();
   clearProposal();
   byId("chat-messages").replaceChildren(renderAssistantMessage(project
     ? `${project.project_name} の登録資料を参照します。`
@@ -432,7 +498,7 @@ byId("chat-file").addEventListener("change", async event => {
   updateComposerActions();
   try {
     for (const file of files) {
-      status.textContent = `${displayFileName(file.name)} を読み取っています…`;
+      status.textContent = `${displayUploadName(file.name)} を読み取っています…`;
       await importFile(file);
     }
   } catch (error) {
@@ -493,25 +559,31 @@ async function buildProposal() {
   const userNotes = state.chatMessages.filter(message => message.role === "user").map(message => message.content);
   const fields = {...state.project.fields};
   if (userNotes.length) {
-    const origin = fields.origin || "";
-    const destination = fields.destination || "";
-    const text = `${origin && destination ? `${origin}から${destination}へ ` : ""}${userNotes.join("。")}`;
     try {
       const baseTime = tokyoIso();
-      const parsed = await api("/api/intent/extract", {text, base_time: baseTime});
-      for (const key of ["origin", "destination", "purpose", "travelers", "lodging_required", "departure_at", "arrive_by", "return_by"]) {
-        if (parsed.trip?.[key] !== undefined && parsed.trip[key] !== null) fields[key] = parsed.trip[key];
+      // Parse each user message separately. Combining old and new messages
+      // made the parser treat a previous route/date as the latest condition,
+      // so follow-up answers could not reliably override the draft.
+      for (const text of userNotes) {
+        const parsed = await api("/api/intent/extract", {text, base_time: baseTime});
+        for (const key of ["origin", "destination", "purpose", "lodging_required", "departure_at", "arrive_by", "return_by"]) {
+          if (parsed.trip?.[key] !== undefined && parsed.trip[key] !== null) fields[key] = parsed.trip[key];
+        }
+        if (Number.isInteger(parsed.budget_jpy) && parsed.budget_jpy > 0) fields.budget_jpy = parsed.budget_jpy;
       }
-    } catch (_error) {
-      // The original project facts and user notes remain in the draft when extraction is unavailable.
+    } catch (error) {
+      throw new Error(`入力した条件を確認できませんでした。通信状態を確認して、もう一度お試しください。${error.message ? `（${error.message}）` : ""}`);
     }
   }
   const missing = [];
-  for (const [key, label] of [["departure_at", "希望出発日時"], ["arrive_by", "到着希望日時"], ["return_by", "希望帰着日時"], ["travelers", "出張人数"], ["lodging_required", "宿泊の要否"]]) {
-    if (fields[key] === undefined) missing.push(label);
+  const hasValue = value => value !== undefined && value !== null && value !== "" && value !== "未確認";
+  for (const [key, label] of [
+    ["origin", "出発地"], ["destination", "目的地"], ["purpose", "出張目的"],
+    ["departure_at", "希望出発日時"], ["arrive_by", "到着希望日時"], ["return_by", "希望帰着日時"],
+  ]) {
+    if (!hasValue(fields[key])) missing.push(label);
   }
-  const deadlineKnown = fields.arrival_deadline !== undefined && fields.arrival_deadline !== "未確認";
-  if (fields.arrive_by === undefined && !deadlineKnown && !missing.includes("到着希望日時")) missing.push("到着希望日時");
+  if (typeof fields.lodging_required !== "boolean") missing.push("宿泊の要否");
   const policyDocument = state.project.documents.find(document => document.document_kind === "policy");
   const policyExcerpt = policyDocument
     ? policyDocument.content
@@ -526,6 +598,55 @@ async function buildProposal() {
   } catch (error) {
     simulationError = error.message || String(error);
   }
+  let travelContext = null;
+  let contextError = "";
+  try {
+    travelContext = await api("/api/travel-context", simulation.trip);
+  } catch (error) {
+    contextError = error.message || String(error);
+  }
+  let workflowResult = null;
+  let workflowError = "";
+  const selectedDocuments = [...state.project.documents, ...state.uploads];
+  try {
+    workflowResult = await api("/api/run", {
+      trip: simulation.trip,
+      plans: simulationResult?.plans || [],
+      document_ids: [...new Set(selectedDocuments.map(document => document.document_id))],
+      snapshot_ids: [...new Set(selectedDocuments.map(document => document.snapshot_id).filter(Boolean))],
+    });
+  } catch (error) {
+    workflowError = error.message || String(error);
+  }
+  const workflowStatusLabels = {
+    needs_rule_review: "計算結果と規程を人が確認してください",
+    needs_offers: "実際の見積りがないため比較を完了できません",
+    needs_information: "必要な出張条件が不足しています",
+    needs_confirmation: "出張条件の確認が必要です",
+    policy_scope_blocked: "規程資料の確認を中断しました",
+  };
+  const policyStatusLabels = {
+    needs_human_review: "関連する原文候補があります。適用範囲を人が確認してください",
+    not_found: "関連する原文候補を取得できませんでした。規程に記載がないことを示すものではありません",
+    failed: "規程の検索に失敗しました",
+    blocked: "規程資料の対象範囲を確認できませんでした",
+  };
+  const workflowLines = workflowResult ? [
+    `- 処理結果：${workflowStatusLabels[workflowResult.status] || "処理を完了しました"}`,
+    ...(workflowResult.comparison?.results || []).flatMap(result => {
+      const planName = simulationResult?.details?.[result.plan_id]?.plan_name || result.plan_id;
+      return [
+        `- ${planName}：行程 ${result.itinerary_valid ? "条件内" : "要確認"}、費用 ${result.cost_complete ? "計算完了" : "未確定"}、予約可否 ${result.available === true ? "確認済み" : "未確認"}`,
+        ...result.issues.slice(0, 4).map(issue => `- 要確認：${issue}`),
+      ];
+    }),
+    `- 規程検索：${policyStatusLabels[workflowResult.policy?.status] || (workflowResult.policy ? "検索結果を確認してください" : "対象となる登録済み規程資料がありません")}`,
+    `- 規程の根拠候補：${workflowResult.policy?.evidence?.length || 0} 件。規程適合は自動判定していません。`,
+    "有効な実見積りがないため、費用・時間の順位は作成していません。",
+  ] : [
+    `- サーバー側の確認を実行できませんでした：${workflowError}`,
+    "この計画書にはローカル模擬値のみを表示しています。費用・行程・規程のサーバー側確認は未実施です。通信復旧後に再作成してください。",
+  ];
   const simulationLines = simulationResult?.plans?.length
     ? simulationResult.plans.flatMap(plan => {
       const details = simulationResult.details?.[plan.plan_id] || {};
@@ -546,6 +667,21 @@ async function buildProposal() {
       ];
     })
     : ["模擬データの生成を完了できませんでした：" + (simulationError || "返却データがありません。")];
+  const weatherItems = travelContext?.weather?.data || [];
+  const severeWeather = weatherItems.filter(item => item.severity === "severe");
+  const contextLines = travelContext ? [
+    `- カレンダー：${travelContext.calendar?.data_kind === "simulation" ? "模擬確認" : "確認済み"}`,
+    `- 天気：${travelContext.weather?.data_kind === "simulation" ? "模擬確認" : "確認済み"}`,
+    ...(weatherItems.map(item => `- ${item.date} ${item.destination}：${item.condition}、移動リスク ${item.transport_risk}`)),
+    ...((travelContext.issues || []).map(issue => `- 注意：${issue}`)),
+  ] : [`- 日程・天候確認を実行できませんでした：${contextError || "返却データがありません。"}`];
+  const missingLines = missing.length ? [
+    "## 作成後に確認する条件", "",
+    "計画書を先に作成しました。次の条件は未確認のまま模擬値で例示しています。",
+    ...missing.map(item => `- ${item}`),
+  ] : [];
+  const weatherAlertLines = severeWeather.map(item =>
+    `! 天候注意：${item.date} の${item.destination}は${item.condition}の模擬判定です。${item.advice}`);
   const lines = [
     `# ${state.project.project_name} 出張計画書`,
     "",
@@ -561,13 +697,24 @@ async function buildProposal() {
     `- 出発日時：${valueOrUnknown(fields.departure_at, "departure_at")}`,
     `- 到着期限：${valueOrUnknown(fields.arrive_by, "arrive_by")}`,
     `- 帰着期限：${valueOrUnknown(fields.return_by, "return_by")}`,
-    `- 出張人数：${valueOrUnknown(fields.travelers, "travelers")}`,
     `- 宿泊：${valueOrUnknown(fields.lodging_required, "lodging_required")}`,
     `- 予算上限：${budget}`,
     "",
     "## 登録済みの出張旅費規程",
     "",
     ...policyExcerpt.split(/\r?\n/),
+    "",
+    "## サーバー側の確認結果",
+    "",
+    ...workflowLines,
+    "",
+    "## 日程・天候・移動リスク",
+    "",
+    ...contextLines,
+    ...simulation.assumptions.map(item => `- ${item}`),
+    ...weatherAlertLines,
+    "",
+    ...missingLines,
     "",
     "## 行程案と費用",
     "",
@@ -582,7 +729,8 @@ async function buildProposal() {
     "宿泊が必要な場合は、規程記載額と実際の宿泊費を照合し、差額の取扱いを承認者に確認してください。",
     "",
   ];
-  return {markdown: lines.join("\n"), fields, missing, policyDocument, userNotes};
+  return {markdown: lines.join("\n"), fields, missing, policyDocument, userNotes, travelContext,
+    simulationResult, selectedPlanId: null};
 }
 
 function renderProposal(proposal) {
@@ -598,6 +746,9 @@ function renderProposal(proposal) {
     date.append(node("span", "作成日"), node("time", createdAt));
     documentHeader.append(date);
   }
+  const selectionStatus = node("p", "計画書内の案を 1 つ選択してください。選択後に承認メールを作成できます。", "proposal-selection-status");
+  selectionStatus.setAttribute("role", "status");
+  documentHeader.append(selectionStatus);
   content.append(documentHeader);
 
   let section = null;
@@ -607,6 +758,7 @@ function renderProposal(proposal) {
   let activeOption = null;
   let proposalNotes = null;
   let list = null;
+  let optionIndex = 0;
   const splitPair = value => {
     const matched = value.match(/^([^：:]+)[：:、]\s*(.*)$/);
     return matched ? [matched[1].trim(), matched[2].trim()] : null;
@@ -656,10 +808,17 @@ function renderProposal(proposal) {
         const isMock = /（模擬）$/.test(value);
         optionHeading.append(node("h4", value.replace(/（模擬）$/, "")));
         if (isMock) optionHeading.append(node("span", "模擬案", "proposal-option-badge"));
+        const option = proposal.simulationResult?.plans?.[optionIndex];
+        const select = node("button", "この案を選択", "proposal-select-button");
+        select.type = "button";
+        select.addEventListener("click", () => selectProposalOption(proposal, option?.plan_id, activeOption));
+        optionHeading.append(select);
         activeOption.append(optionHeading);
+        activeOption.dataset.planId = option?.plan_id || "";
         const details = node("div", undefined, "proposal-option-details");
         activeOption.append(details);
         options.append(activeOption);
+        optionIndex += 1;
       } else if (sectionName === "行程案と費用") {
         options = node("div", undefined, "proposal-options");
         section?.append(options);
@@ -668,8 +827,15 @@ function renderProposal(proposal) {
         const isMock = /（模擬）$/.test(value);
         optionHeading.append(node("h4", value.replace(/（模擬）$/, "")));
         if (isMock) optionHeading.append(node("span", "模擬案", "proposal-option-badge"));
+        const option = proposal.simulationResult?.plans?.[optionIndex];
+        const select = node("button", "この案を選択", "proposal-select-button");
+        select.type = "button";
+        select.addEventListener("click", () => selectProposalOption(proposal, option?.plan_id, activeOption));
+        optionHeading.append(select);
         activeOption.append(optionHeading, node("div", undefined, "proposal-option-details"));
+        activeOption.dataset.planId = option?.plan_id || "";
         options.append(activeOption);
+        optionIndex += 1;
       } else {
         if (!list) {
           list = node("ul", undefined, "proposal-list");
@@ -694,7 +860,9 @@ function renderProposal(proposal) {
     }
     activeOption = null;
     list = null;
-    if (sectionName === "行程案と費用" && section) {
+    if (line.startsWith("! ") && section) {
+      section.append(node("p", line.slice(2).trim(), "proposal-weather-alert"));
+    } else if (sectionName === "行程案と費用" && section) {
       if (!proposalNotes) {
         proposalNotes = node("aside", undefined, "proposal-notes");
         proposalNotes.append(node("span", "模擬データの確認事項", "proposal-notes-title"));
@@ -705,9 +873,32 @@ function renderProposal(proposal) {
       section.append(node("p", line.trim(), "proposal-copy"));
     }
   }
+  const followup = byId("proposal-followup");
+  if (followup) {
+    followup.hidden = !proposal.missing.length;
+    byId("proposal-followup-missing").textContent = proposal.missing.length
+      ? `未確認：${proposal.missing.join("、")}` : "追加確認はありません。";
+  }
   byId("proposal-panel").hidden = false;
-  syncPageBookmarks();
+  setActivePage("proposal-panel");
   byId("proposal-panel").scrollIntoView({behavior: "smooth", block: "start"});
+}
+
+function selectProposalOption(proposal, planId) {
+  if (!planId) return;
+  proposal.selectedPlanId = planId;
+  const selected = proposal.simulationResult?.details?.[planId]?.plan_name || planId;
+  proposal.selectedPlanName = selected;
+  document.querySelectorAll(".proposal-option").forEach(option => {
+    const isSelected = option.dataset.planId === planId;
+    option.classList.toggle("is-selected", isSelected);
+    const button = option.querySelector(".proposal-select-button");
+    if (button) button.textContent = isSelected ? "選択中" : "この案を選択";
+  });
+  const status = document.querySelector(".proposal-selection-status");
+  if (status) status.textContent = `選択中：${selected}。この案をもとに承認メールを作成できます。`;
+  updateComposerActions();
+  syncPageBookmarks();
 }
 
 function downloadText(content, filename) {
@@ -719,10 +910,30 @@ function downloadText(content, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-byId("create-proposal").addEventListener("click", async () => {
-  if (state.activeAction || state.uploading || !state.project) return;
-  clearEmailDraft();
+function openProposalConfirmation() {
+  const knownConditions = Object.entries(state.project.fields)
+    .filter(([key]) => fieldLabels[key] && key !== "project_name")
+    .map(([key, value]) => `${fieldLabels[key]}：${displayFieldValue(key, value)}`);
   const draftNote = byId("chat-input").value.trim();
+  const userConditions = [
+    ...state.chatMessages.filter(message => message.role === "user").map(message => message.content),
+    ...(draftNote ? [draftNote] : []),
+  ];
+  const confirmation = [
+    `対象プロジェクト：${state.project.project_name}`,
+    ...knownConditions,
+    ...(userConditions.length ? ["会話で伝えた条件：", ...userConditions.map(value => `・${value}`)] : []),
+  ].join("\n");
+  byId("proposal-confirm-content").textContent = confirmation;
+  const dialog = byId("proposal-confirm-dialog");
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else if (window.confirm(`${confirmation}\n\nこの条件で計画書を作成しますか？`)) generateProposal();
+}
+
+async function generateProposal() {
+  if (state.activeAction || state.uploading || !state.project) return;
+  const draftNote = byId("chat-input").value.trim();
+  clearProposal();
   if (draftNote) {
     state.chatMessages.push({role: "user", content: draftNote});
     appendUserMessage(draftNote, "計画書に反映する条件");
@@ -731,15 +942,30 @@ byId("create-proposal").addEventListener("click", async () => {
   state.activeAction = "proposal";
   updateComposerActions();
   try {
-    state.proposal = await buildProposal();
+    const proposal = await buildProposal();
+    state.proposal = proposal;
     renderProposal(state.proposal);
-    askFollowUpQuestions(state.proposal.missing);
   } catch (error) {
     setProjectMessage(error.message || String(error), true);
   } finally {
     state.activeAction = null;
     updateComposerActions();
   }
+}
+
+byId("create-proposal").addEventListener("click", openProposalConfirmation);
+byId("cancel-proposal-confirm").addEventListener("click", () => byId("proposal-confirm-dialog").close("cancel"));
+byId("confirm-proposal").addEventListener("click", () => {
+  byId("proposal-confirm-dialog").close("confirm");
+  generateProposal();
+});
+byId("proposal-followup-submit").addEventListener("click", () => {
+  const input = byId("proposal-followup-input");
+  const value = input.value.trim();
+  if (!value || state.activeAction || state.uploading) return;
+  byId("chat-input").value = value;
+  input.value = "";
+  generateProposal();
 });
 
 byId("download-proposal").addEventListener("click", () => {
@@ -747,7 +973,7 @@ byId("download-proposal").addEventListener("click", () => {
 });
 
 byId("generate-email").addEventListener("click", () => {
-  if (!state.project) return;
+  if (!state.proposal?.selectedPlanId) return;
   byId("email-panel").hidden = false;
   syncPageBookmarks();
   setActivePage("email-panel");
@@ -797,7 +1023,9 @@ byId("email-form").addEventListener("submit", async event => {
       recipient,
       purpose,
       project_context: projectContext(),
-      plan_context: state.proposal?.markdown || "",
+      plan_context: state.proposal
+        ? `${state.proposal.markdown}\n\nユーザーが選択した案：${state.proposal.selectedPlanName || state.proposal.selectedPlanId}`
+        : "",
       conversation_context: conversation.join("\n").slice(0, 12000),
     });
     showEmailDraft(result, result.status === "success"

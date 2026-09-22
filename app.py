@@ -8,6 +8,7 @@ import json
 import os
 import re
 import threading
+import time
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -24,7 +25,9 @@ from core.emailer import build_draft, save_draft
 from core.intent_parser import parse_text, validate_request
 from core.planner import run
 from core.rule_matcher import RuleRequest, extract_verified_rules
+from tools.calendar_api import query as query_calendar
 from tools.simulation_provider import create_simulated_offers
+from tools.weather_api import query as query_weather
 from policy_import.models import Binding, ImportSpec, Model, SearchRequest, Source
 from policy_import.store import PolicyStore
 from project_catalog import load_projects
@@ -36,6 +39,8 @@ class WorkflowInput(Model):
     trip: TripRequest
     plans: list[PlanInput] = Field(max_length=30)
     policy: RuleRequest | None = None
+    document_ids: list[str] = Field(default_factory=list, max_length=100)
+    snapshot_ids: list[str] = Field(default_factory=list, max_length=100)
 
 
 class DraftInput(Model):
@@ -60,6 +65,8 @@ class LocalServer(ThreadingHTTPServer):
         self.root = Path(root)
         self.store = PolicyStore(root)
         self.store_lock = threading.Lock()
+        self.rate_lock = threading.Lock()
+        self.rate_buckets = {}
         super().__init__(address, Handler)
 
 
@@ -83,6 +90,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Cross-Origin-Opener-Policy", "same-origin")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
         if download:
@@ -121,6 +130,31 @@ class Handler(BaseHTTPRequestHandler):
             if not authorization.startswith("Bearer ") or not hmac.compare_digest(token, password):
                 self.reply(401, {"status": "unauthorized", "message": "チームアクセスコードを入力してください。"})
                 return False
+        path = urlsplit(self.path).path
+        if path == "/api/login" or path.startswith("/api/documents/") or path in {"/api/import", "/api/agent/chat", "/api/intent", "/api/intent/extract",
+                                            "/api/search", "/api/rules", "/api/simulation/offers", "/api/travel-context", "/api/run", "/api/email/generate"}:
+            client_ip = self.client_address[0] if self.client_address else "unknown"
+            key = (client_ip, path)
+            now = time.monotonic()
+            limit = 10 if path == "/api/login" else 30
+            with self.server.rate_lock:
+                if len(self.server.rate_buckets) > 10000:
+                    self.server.rate_buckets = {
+                        bucket_key: stamps for bucket_key, stamps in self.server.rate_buckets.items()
+                        if stamps and now - max(stamps) < 60
+                    }
+                recent = [stamp for stamp in self.server.rate_buckets.get(key, []) if now - stamp < 60]
+                if len(recent) >= limit:
+                    self.server.rate_buckets[key] = recent
+                    self.send_response(429)
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self.send_header("Retry-After", "60")
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"status": "rate_limited", "message": "リクエストが多すぎます。しばらく待ってから再試行してください。"}, ensure_ascii=False).encode("utf-8"))
+                    return False
+                recent.append(now)
+                self.server.rate_buckets[key] = recent
         return True
 
     def do_GET(self):
@@ -141,7 +175,10 @@ class Handler(BaseHTTPRequestHandler):
             elif url.path == "/api/plan-schema":
                 self.reply(200, (ROOT / "schemas/PlanInput.json").read_bytes(), "application/schema+json; charset=utf-8", "PlanInput.schema.json")
             elif url.path == "/api/projects":
-                projects = load_projects(self.server.root)
+                catalog_root = self.server.root
+                if not (catalog_root / "data/projects/catalog.json").exists():
+                    catalog_root = ROOT
+                projects = load_projects(catalog_root)
                 with self.server.store_lock:
                     for project in projects:
                         for document in project["documents"]:
@@ -151,13 +188,35 @@ class Handler(BaseHTTPRequestHandler):
                                 policy_version=None, revision_date=None,
                                 source=Source(type="md", url=None, file_path=document["path"]),
                             )
-                            record = self.server.store.ingest(spec, document["content"].encode("utf-8"))
-                            self.server.store.bind(Binding(
-                                company_id=None, document_id=record.document_id,
-                                snapshot_id=record.snapshot_id, usage_mode="demo",
-                                approval_evidence=None,
-                            ))
-                self.reply(200, projects)
+                            try:
+                                record = self.server.store.ingest(spec, document["content"].encode("utf-8"))
+                                self.server.store.bind(Binding(
+                                    company_id=None, document_id=record.document_id,
+                                    snapshot_id=record.snapshot_id, usage_mode="demo",
+                                    approval_evidence=None,
+                                ))
+                                document["snapshot_id"] = record.snapshot_id
+                            except Exception:
+                                # The project itself remains usable when the local
+                                # embedding model is unavailable. Chat/search and
+                                # rule retrieval then use their explicit fallback
+                                # messages until the dependency is restored.
+                                document.pop("snapshot_id", None)
+                # Do not expose repository paths or internal catalog fields to the browser.
+                # The workspace only needs display data and stable IDs for the selected sources.
+                public_projects = []
+                for project in projects:
+                    public_projects.append({
+                        "project_id": project["project_id"],
+                        "project_name": project["project_name"],
+                        "fields": project["fields"],
+                        "documents": [
+                            {key: document[key] for key in ("document_id", "title", "document_kind", "content", "snapshot_id")
+                             if key in document}
+                            for document in project["documents"]
+                        ],
+                    })
+                self.reply(200, public_projects)
             elif url.path == "/api/snapshots":
                 with self.server.store_lock:
                     store = self.server.store
@@ -214,7 +273,8 @@ class Handler(BaseHTTPRequestHandler):
                 if suffix == "pdf" and not data.startswith(b"%PDF-"):
                     return self.reply(400, {"status": "invalid_input", "message": "有効な PDF ファイルではありません。"})
                 title = Path(filename).stem[:160] or "手動アップロード資料"
-                document_id = "upload_" + hashlib.sha256(filename.encode("utf-8")).hexdigest()[:20]
+                upload_identity = filename.encode("utf-8") + b"\0" + hashlib.sha256(data).digest()
+                document_id = "upload_" + hashlib.sha256(upload_identity).hexdigest()[:32]
                 source_type = "jpg" if suffix == "jpeg" else suffix
                 document_kind = "project" if suffix == "md" else "policy"
                 spec = ImportSpec(document_id=document_id, title=title, document_kind=document_kind,
@@ -234,6 +294,9 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError, OSError) as exc:
                 return self.reply(400, {"status": "failed", "message": str(exc)})
             except Exception as exc:
+                diagnostic = str(exc).lower()
+                if "fastembed" in diagnostic or "huggingface" in diagnostic or "embedding" in diagnostic:
+                    return self.reply(503, {"status": "not_configured", "message": "資料検索モデルを準備できません。会話への手入力は利用できます。モデルを準備してから資料を再アップロードしてください。"})
                 message = "ファイルを読み取れませんでした。OCR の依存関係を確認し、内容が鮮明であることを確認して再試行してください。"
                 return self.reply(500, {"status": "failed", "message": message})
         if self.headers.get("Content-Type", "").split(";")[0] != "application/json":
@@ -293,7 +356,7 @@ class Handler(BaseHTTPRequestHandler):
                 result = parse_text(request.text, base_time=datetime.fromisoformat(request.base_time))
                 extracted = result.get("trip")
                 fields = ({key: extracted.get(key) for key in
-                           ("origin", "destination", "departure_at", "arrive_by", "return_by", "purpose", "travelers", "lodging_required")}
+                           ("origin", "destination", "departure_at", "arrive_by", "return_by", "purpose", "lodging_required")}
                           if extracted else {})
                 understanding = interpret_intent(request.text, fields=fields)
                 result["model_api_status"] = understanding["status"]
@@ -329,6 +392,14 @@ class Handler(BaseHTTPRequestHandler):
                                  source=provider_event.get("source"), detail="Synthetic data; no live provider request was made.")
                 result.pop("provider_events", None)
                 result.pop("references", None)
+            elif self.path == "/api/travel-context":
+                trip = TripRequest.model_validate(payload)
+                context = trip.model_dump()
+                calendar_result = query_calendar(context).model_dump()
+                weather_result = query_weather(context).model_dump()
+                result = {"status": "simulation", "data_kind": "simulation", "queried_at": datetime.now().astimezone().isoformat(),
+                          "calendar": calendar_result, "weather": weather_result,
+                          "issues": [*calendar_result.get("issues", []), *weather_result.get("issues", [])]}
             elif self.path == "/api/rules":
                 request = RuleRequest.model_validate(payload)
                 if request.usage_mode != "demo" or request.company_id is not None:
@@ -347,16 +418,22 @@ class Handler(BaseHTTPRequestHandler):
                 if request.policy and (request.policy.usage_mode != "demo" or request.policy.company_id is not None):
                     return self.reply(403, {"status": "blocked", "message": "この画面では公開資料のデモ用途のみ利用できます。"})
                 with self.server.store_lock:
-                    bindings = [b for b in self.server.store.bindings() if b.usage_mode == "demo" and b.company_id is None]
+                    requested_ids = set(request.policy.document_ids if request.policy else request.document_ids)
+                    requested_snapshots = set(request.policy.snapshot_ids if request.policy else request.snapshot_ids)
+                    bindings = [b for b in self.server.store.bindings()
+                                if b.usage_mode == "demo" and b.company_id is None
+                                and (not requested_ids or b.document_id in requested_ids)
+                                and (not requested_snapshots or b.snapshot_id in requested_snapshots)]
                     allowed = {b.snapshot_id for b in bindings}
                     records = [record for record in self.server.store.list_snapshots() if record.snapshot_id in allowed]
+                    policy_records = [record for record in records if record.document_kind == "policy"]
                     query_parts = [request.trip.origin, request.trip.destination, request.trip.purpose,
                                    "交通費 宿泊費 出張規程 承認条件",
                                    "宿泊" if request.trip.lodging_required else None]
                     policy_request = RuleRequest(company_id=None, employee_scope=None,
-                        document_ids=list(dict.fromkeys(r.document_id for r in records)),
-                        snapshot_ids=[r.snapshot_id for r in records], usage_mode="demo",
-                        query=" ".join(part for part in query_parts if part)) if records else None
+                        document_ids=list(dict.fromkeys(r.document_id for r in policy_records)),
+                        snapshot_ids=[r.snapshot_id for r in policy_records], usage_mode="demo",
+                        query=(request.policy.query if request.policy else " ".join(part for part in query_parts if part))) if policy_records else None
                 result = run(request.trip, request.plans, self.server.root / "output/runs",
                              policy_request, self.server.store if policy_request else None)
                 trace_id = new_trace_id()
@@ -410,6 +487,9 @@ class Handler(BaseHTTPRequestHandler):
                                 for b in self.server.store.bindings())
                 if not permitted:
                     return self.reply(404, {"status": "not_found", "message": "資料が見つかりません。"})
+                record = self.server.store.load(snapshot_id)
+                if not record.document_id.startswith("upload_"):
+                    return self.reply(403, {"status": "blocked", "message": "登録済みの資料はこの画面から削除できません。"})
                 record = self.server.store.delete(snapshot_id)
             self.reply(200, {"status": "deleted", "snapshot_id": record.snapshot_id})
         except (ValueError, OSError) as exc:

@@ -107,7 +107,7 @@
     <section id="work-area" class="work-area" aria-label="出張の相談と計画書">
       <div class="conversation-column">
         <div class="section-title-row">
-          <div><span class="eyebrow">出張条件</span><div class="labeled-help section-help"><h2>会話で情報を補足する</h2><details class="help-tip"><summary aria-label="会話で補足する方法">?</summary><div role="tooltip">資料にない出発日、到着希望時刻、人数、訪問先住所など、ご自身の希望条件を入力してください。会話内容は計画書にも反映されます。</div></details></div></div>
+          <div><span class="eyebrow">出張条件</span><div class="labeled-help section-help"><h2>会話で情報を補足する</h2><details class="help-tip"><summary aria-label="会話で補足する方法">?</summary><div role="tooltip">資料にない出発日、到着希望時刻、訪問先住所など、ご自身の希望条件を入力してください。会話内容は計画書にも反映されます。</div></details></div></div>
           <span id="assistant-status" class="small-status">プロジェクトを選択してください</span>
         </div>
         <section class="conversation-card" aria-label="出張計画アシスタントとの会話">
@@ -115,10 +115,11 @@
             <article class="chat-message assistant-message"><span class="message-author">旅程 AI</span><p>選択したプロジェクト資料と追加資料をもとに、出張条件を整理します。</p></article>
           </div>
           <div id="chat-upload-state" class="chat-upload-state" role="status" hidden></div>
+          <div id="chat-upload-list" class="chat-upload-list" role="list" hidden aria-label="今回追加した資料"></div>
           <form id="chat-form" class="chat-composer">
             <div class="upload-control"><label class="attach-button" for="chat-file">＋ 資料を追加<input id="chat-file" type="file" accept=".md,.pdf,.docx,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/tiff,image/bmp,image/webp" multiple></label><details class="help-tip"><summary aria-label="アップロードできる資料">?</summary><div role="tooltip">出張旅費規程、プロジェクト概要、訪問先からの依頼資料などを追加できます。Markdown、PDF、DOCX、PNG、JPG、TIFF、BMP、WebP に対応しています。</div></details></div>
             <label class="visually-hidden" for="chat-input">出張について補足または質問</label>
-            <textarea id="chat-input" rows="3" maxlength="4000" placeholder="例：希望到着時刻、訪問先住所、出発日、人数などを入力してください。" ></textarea>
+            <textarea id="chat-input" rows="3" maxlength="4000" placeholder="例：希望到着時刻、訪問先住所、出発日、予算などを入力してください。" ></textarea>
             <div class="composer-footer">
               <div class="composer-primary-actions">
                 <div class="labeled-help"><button id="create-proposal" class="primary" type="button" disabled>計画書を作成 →</button><details class="help-tip"><summary aria-label="計画書の作成について">?</summary><div role="tooltip">入力欄に書いた内容も条件として取り込み、このページに計画書を作成します。会話の返答が必要な場合は「会話で相談」を選んでください。</div></details></div>
@@ -138,6 +139,14 @@
         <div class="proposal-actions"><button id="download-proposal" class="primary" type="button">計画書を保存 ↓</button></div>
       </div>
       <article id="proposal-content" class="proposal-content"></article>
+      <section id="proposal-followup" class="proposal-followup" hidden aria-labelledby="proposal-followup-title">
+        <h3 id="proposal-followup-title">作成後に確認する条件</h3>
+        <p>計画書は先に作成しました。下の条件を入力すると、内容を更新できます。</p>
+        <p id="proposal-followup-missing" class="proposal-followup-missing"></p>
+        <label for="proposal-followup-input">追加する条件</label>
+        <textarea id="proposal-followup-input" rows="3" maxlength="4000" placeholder="例：出発日、到着期限、予算、宿泊の要否など"></textarea>
+        <button id="proposal-followup-submit" class="primary" type="button">条件を反映して再作成</button>
+      </section>
     </section>
 
     <section id="email-panel" class="email-panel" hidden aria-labelledby="email-title">
@@ -170,5 +179,17 @@
     </section>
 
   </main>
+  <dialog id="proposal-confirm-dialog" class="proposal-confirm-dialog" aria-labelledby="proposal-confirm-title">
+    <form method="dialog" class="proposal-confirm-card">
+      <div class="proposal-confirm-kicker">計画書作成 / 最終確認</div>
+      <h2 id="proposal-confirm-title">この条件で計画書を作成します</h2>
+      <p class="proposal-confirm-intro">内容を確認してください。作成後は第 2 ページの計画書に進みます。</p>
+      <div id="proposal-confirm-content" class="proposal-confirm-content"></div>
+      <div class="proposal-confirm-actions">
+        <button id="cancel-proposal-confirm" class="secondary" type="button">戻って修正</button>
+        <button id="confirm-proposal" class="primary" type="button">この条件で作成する</button>
+      </div>
+    </form>
+  </dialog>
 </body>
 </html>

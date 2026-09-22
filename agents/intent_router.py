@@ -5,14 +5,14 @@ import json
 import re
 from pathlib import Path
 
-from llm.orcarouter import configured, create_llm, safe_error_message
+from llm.orcarouter import configured, create_llm, effective_model, safe_error_message
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_FIELDS = ("origin", "destination", "departure_at", "arrive_by", "return_by",
-                   "purpose", "travelers", "lodging_required")
+                   "purpose", "lodging_required")
 FIELD_LABELS = {"origin": "出発地", "destination": "目的地", "departure_at": "出発日時",
                 "arrive_by": "到着期限", "return_by": "帰着期限", "purpose": "出張目的",
-                "travelers": "人数", "lodging_required": "宿泊の要否"}
+                "lodging_required": "宿泊の要否"}
 CONSTRAINTS = (
     "ただし", "もし", "場合", "以内", "までに", "以前", "以降", "以上", "以下", "未満", "優先",
     "比較", "最安", "最速", "予算", "規程", "経由", "乗り換え", "複数", "それぞれ", "同時に",
@@ -67,8 +67,10 @@ def score_request(message: str, *, fields: dict | None = None, history: list | N
     score = round(sum(config["weights"][key] * features[key] for key in config["weights"]))
     tier = next(level for level in ("A", "B", "C", "D")
                 if score >= config["tier_minimum_scores"][level])
+    requested_model_route = config["model_routes"][tier]
     return {"tier": tier, "score": score, "features": features,
-            "weights": config["weights"], "model_route": config["model_routes"][tier],
+            "weights": config["weights"], "model_route": effective_model(requested_model_route),
+            "requested_model_route": requested_model_route,
             "api_configured": configured()}
 
 
