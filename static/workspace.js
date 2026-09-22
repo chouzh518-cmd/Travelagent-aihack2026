@@ -447,7 +447,9 @@ async function importFile(file) {
   renderUploadList();
   const status = byId("chat-upload-state");
   clearProposal();
-  status.textContent = `${result.title} を読み込みました。${result.chunk_count} 個のテキストブロックを会話と確認処理に利用できます。${result.extraction_status === "partial" ? "認識できない箇所があるため、原文を確認してください。" : ""}`;
+  status.textContent = result.chunk_count === 0
+    ? `${result.title} を資料一覧に追加しました。`
+    : `${result.title} を読み込みました。${result.chunk_count} 個のテキストブロックを会話と確認処理に利用できます。${result.extraction_status === "partial" ? "認識できない箇所があるため、原文を確認してください。" : ""}`;
   status.hidden = false;
   updateComposerActions();
   return result;

@@ -286,7 +286,7 @@ def extract(data: bytes, source_type: str, options: ExtractionOptions):
         raise
     except Exception as exc:
         raise ExtractionError(f"{source_type} extraction failed: {type(exc).__name__}: {exc}") from exc
-    if not blocks or not any(b.text.strip() for b in blocks):
+    if (not blocks or not any(b.text.strip() for b in blocks)) and source_type not in OCR_IMAGE_TYPES:
         raise ExtractionError("no text extracted; image-only files require OCR")
     return blocks, issues
 

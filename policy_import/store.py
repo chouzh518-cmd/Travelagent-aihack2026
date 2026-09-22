@@ -129,20 +129,21 @@ class PolicyStore:
         atomic_json(folder / "blocks.json", [b.model_dump() for b in blocks])
         atomic_json(folder / "record.json", record.model_dump())
         name = "policy_" + snapshot_id
-        try:
-            existing = self.client.get_collection(name, embedding_function=None)
-            if (existing.metadata or {}).get("embedding_method") != EMBEDDING_METHOD:
-                self.client.delete_collection(name)
-        except Exception:
-            pass
-        collection = self.client.get_or_create_collection(name, embedding_function=None,
-                                        metadata={"embedding_method": EMBEDDING_METHOD, "hnsw:space": "cosine"})
-        for offset in range(0, len(chunks), 100):
-            batch = chunks[offset:offset+100]
-            collection.upsert(ids=[c.chunk_id for c in batch], documents=[c.text for c in batch],
-                              embeddings=embeddings([c.text for c in batch], self.root / "models"),
-                              metadatas=[{"document_id": spec.document_id, "snapshot_id": snapshot_id,
-                                          "sequence": c.sequence, "chunk_type": c.chunk_type} for c in batch])
+        if chunks:
+            try:
+                existing = self.client.get_collection(name, embedding_function=None)
+                if (existing.metadata or {}).get("embedding_method") != EMBEDDING_METHOD:
+                    self.client.delete_collection(name)
+            except Exception:
+                pass
+            collection = self.client.get_or_create_collection(name, embedding_function=None,
+                                            metadata={"embedding_method": EMBEDDING_METHOD, "hnsw:space": "cosine"})
+            for offset in range(0, len(chunks), 100):
+                batch = chunks[offset:offset+100]
+                collection.upsert(ids=[c.chunk_id for c in batch], documents=[c.text for c in batch],
+                                  embeddings=embeddings([c.text for c in batch], self.root / "models"),
+                                  metadatas=[{"document_id": spec.document_id, "snapshot_id": snapshot_id,
+                                              "sequence": c.sequence, "chunk_type": c.chunk_type} for c in batch])
         atomic_json(folder / "ready.json", {"snapshot_id": snapshot_id, "chunk_count": len(chunks), "embedding_method": EMBEDDING_METHOD})
         return record
 
@@ -179,11 +180,11 @@ class PolicyStore:
                               for b in bindings)
                 if not allowed or (request.usage_mode == "production" and not request.company_id):
                     raise PermissionError("no exact applicability binding for this request")
-                if record.extraction_status != "success":
+                if record.extraction_status != "success" and record.chunks:
                     response.issues.append(Issue(code="PARTIAL_EXTRACTION", message=f"{record.title}: 一部を読み取れませんでした。該当箇所を原文で確認してください。"))
             hits = []
             for record in records:
-                if record.extraction_status != "success":
+                if record.extraction_status != "success" or not record.chunks:
                     continue
                 index = {c.chunk_id: c for c in record.chunks}
                 collection = self.client.get_collection("policy_" + record.snapshot_id, embedding_function=None)

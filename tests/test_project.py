@@ -11,6 +11,7 @@ import unittest
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
+from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -24,7 +25,7 @@ from core.intent_parser import parse_text, validate_request
 from core.planner import run
 from core.rule_matcher import RuleRequest, extract_verified_rules
 from policy_import.extract import ExtractionError, chunk_blocks, extract
-from policy_import.models import Binding, ExtractionOptions, ImportSpec, SearchRequest
+from policy_import.models import Binding, ExtractionOptions, ImportSpec, SearchRequest, Source
 from policy_import.store import PolicyStore
 from tools.base import load_plans
 from tools.email_api import send
@@ -154,6 +155,27 @@ class PolicyTests(unittest.TestCase):
     def test_invalid_pdf_fails_explicitly(self):
         with self.assertRaises(ExtractionError):
             extract(b"", "pdf", ExtractionOptions())
+
+    def test_image_without_text_is_kept_without_search_error(self):
+        from PIL import Image
+
+        image_data = BytesIO()
+        Image.new("RGB", (80, 80), "white").save(image_data, format="JPEG")
+        spec = ImportSpec(document_id="empty-text-image", title="文字なし画像", document_kind="policy",
+                          issuer_name=None, policy_version=None, revision_date=None,
+                          source=Source(type="jpg", url=None, file_path="uploaded/no-text.jpg"))
+        with tempfile.TemporaryDirectory() as directory, patch("policy_import.extract.recognize_image", return_value=[]):
+            store = PolicyStore(directory)
+            record = store.ingest(spec, image_data.getvalue())
+            store.bind(Binding(company_id=None, document_id=record.document_id,
+                               snapshot_id=record.snapshot_id, usage_mode="demo", approval_evidence=None))
+            response = store.search(SearchRequest(company_id=None, document_ids=[record.document_id],
+                                      snapshot_ids=[record.snapshot_id], usage_mode="demo", query="画像の内容"))
+
+        self.assertEqual(record.extraction_status, "partial")
+        self.assertEqual(record.chunks, [])
+        self.assertEqual(response.status, "not_found")
+        self.assertNotIn("PARTIAL_EXTRACTION", [issue.code for issue in response.issues])
 
     def test_html_needs_exact_selector(self):
         data = (ROOT / "data/policies/sources/michibiku_travel_template.html").read_bytes()
