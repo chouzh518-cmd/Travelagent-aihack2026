@@ -30,7 +30,6 @@ from tools.simulation_provider import create_simulated_offers
 from tools.weather_api import query as query_weather
 from policy_import.models import Binding, ImportSpec, Model, SearchRequest, Source
 from policy_import.store import PolicyStore
-from project_catalog import load_projects
 
 ROOT = Path(__file__).resolve().parent
 
@@ -50,10 +49,10 @@ class DraftInput(Model):
 
 
 class EmailGenerateInput(Model):
-    project_name: str = Field(min_length=1, max_length=160)
+    plan_title: str = Field(default="出張計画", min_length=1, max_length=160)
     recipient: str = Field(default="", max_length=200)
     purpose: str = Field(default="出張計画の共有・確認依頼", max_length=1200)
-    project_context: str = Field(default="", max_length=12000)
+    document_context: str = Field(default="", max_length=12000)
     plan_context: str = Field(default="", max_length=12000)
     conversation_context: str = Field(default="", max_length=12000)
 
@@ -173,54 +172,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, (ROOT / name).read_bytes(), kind)
             elif url.path == "/api/plan-schema":
                 self.reply(200, (ROOT / "schemas/PlanInput.json").read_bytes(), "application/schema+json; charset=utf-8", "PlanInput.schema.json")
-            elif url.path == "/api/projects":
-                catalog_root = self.server.root
-                if not (catalog_root / "data/projects/catalog.json").exists():
-                    catalog_root = ROOT
-                projects = load_projects(catalog_root)
-                with self.server.store_lock:
-                    for project in projects:
-                        for document in project["documents"]:
-                            spec = ImportSpec(
-                                document_id=document["document_id"], title=document["title"],
-                                document_kind=document["document_kind"], issuer_name=None,
-                                policy_version=None, revision_date=None,
-                                source=Source(type="md", url=None, file_path=document["path"]),
-                            )
-                            try:
-                                record = self.server.store.ingest(spec, document["content"].encode("utf-8"))
-                                self.server.store.bind(Binding(
-                                    company_id=None, document_id=record.document_id,
-                                    snapshot_id=record.snapshot_id, usage_mode="demo",
-                                    approval_evidence=None,
-                                ))
-                                document["snapshot_id"] = record.snapshot_id
-                            except Exception:
-                                # The project itself remains usable when the local
-                                # embedding model is unavailable. Chat/search and
-                                # rule retrieval then use their explicit fallback
-                                # messages until the dependency is restored.
-                                document.pop("snapshot_id", None)
-                # Do not expose repository paths or internal catalog fields to the browser.
-                # The workspace only needs display data and stable IDs for the selected sources.
-                public_projects = []
-                for project in projects:
-                    public_projects.append({
-                        "project_id": project["project_id"],
-                        "project_name": project["project_name"],
-                        "fields": project["fields"],
-                        "documents": [
-                            {key: document[key] for key in ("document_id", "title", "document_kind", "content", "snapshot_id")
-                             if key in document}
-                            for document in project["documents"]
-                        ],
-                    })
-                self.reply(200, public_projects)
             elif url.path == "/api/snapshots":
                 with self.server.store_lock:
                     store = self.server.store
                     allowed = {b.snapshot_id for b in store.bindings() if b.usage_mode == "demo" and b.company_id is None}
-                    records = [record for record in store.list_snapshots() if record.snapshot_id in allowed]
+                    records = [record for record in store.list_snapshots()
+                               if record.snapshot_id in allowed and record.document_id.startswith("upload_")]
                 self.reply(200, [{"snapshot_id": r.snapshot_id, "document_id": r.document_id,
                                 "title": r.title, "document_kind": r.document_kind,
                                 "revision_date": r.revision_date, "source": r.source.model_dump(),
@@ -229,13 +186,16 @@ class Handler(BaseHTTPRequestHandler):
             elif url.path == "/api/agent/status":
                 with self.server.store_lock:
                     agent_state = agent_status(self.server.store)
-                result = {"source_count": agent_state["source_count"]}
+                result = {"source_count": agent_state["source_count"],
+                          "model_configured": agent_state["model_configured"]}
                 self.reply(200, result)
             elif url.path == "/api/source":
                 sid = parse_qs(url.query).get("snapshot_id", [""])[0]
                 with self.server.store_lock:
                     record = self.server.store.load(sid)
-                    permitted = any(b.snapshot_id == sid and b.usage_mode == "demo" and b.company_id is None for b in self.server.store.bindings())
+                    permitted = record.document_id.startswith("upload_") and any(
+                        b.snapshot_id == sid and b.usage_mode == "demo" and b.company_id is None
+                        for b in self.server.store.bindings())
                 if not permitted:
                     return self.reply(403, {"status": "blocked", "message": "この資料はデモ用途として登録されていません。"})
                 data = (self.server.store.folder(sid) / ("source." + record.source.type)).read_bytes()
@@ -275,7 +235,8 @@ class Handler(BaseHTTPRequestHandler):
                 upload_identity = filename.encode("utf-8") + b"\0" + hashlib.sha256(data).digest()
                 document_id = "upload_" + hashlib.sha256(upload_identity).hexdigest()[:32]
                 source_type = "jpg" if suffix == "jpeg" else suffix
-                document_kind = "project" if suffix == "md" else "policy"
+                # User-provided files are the only source library in the workspace.
+                document_kind = "policy"
                 spec = ImportSpec(document_id=document_id, title=title, document_kind=document_kind,
                                   issuer_name=None, policy_version=None, revision_date=None,
                                   source=Source(type=source_type, url=None, file_path=f"uploaded/{filename}"))
@@ -345,6 +306,8 @@ class Handler(BaseHTTPRequestHandler):
                 request = SearchRequest.model_validate(payload)
                 if request.usage_mode != "demo" or request.company_id is not None:
                     return self.reply(403, {"status": "blocked", "message": "この画面では公開資料のデモ用途のみを利用できます。"})
+                if not request.document_ids or any(not document_id.startswith("upload_") for document_id in request.document_ids):
+                    return self.reply(403, {"status": "blocked", "message": "今回追加された資料だけを検索できます。"})
                 with self.server.store_lock:
                     result = self.server.store.search(request).model_dump()
             elif self.path == "/api/trip":
@@ -403,6 +366,8 @@ class Handler(BaseHTTPRequestHandler):
                 request = RuleRequest.model_validate(payload)
                 if request.usage_mode != "demo" or request.company_id is not None:
                     return self.reply(403, {"status": "blocked", "message": "この画面では公開資料のデモ用途のみを利用できます。"})
+                if any(not document_id.startswith("upload_") for document_id in request.document_ids):
+                    return self.reply(403, {"status": "blocked", "message": "今回追加された資料だけを検索できます。"})
                 with self.server.store_lock:
                     result = extract_verified_rules(self.server.store, request)
             elif self.path == "/api/plans":
@@ -421,8 +386,9 @@ class Handler(BaseHTTPRequestHandler):
                     requested_snapshots = set(request.policy.snapshot_ids if request.policy else request.snapshot_ids)
                     bindings = [b for b in self.server.store.bindings()
                                 if b.usage_mode == "demo" and b.company_id is None
-                                and (not requested_ids or b.document_id in requested_ids)
-                                and (not requested_snapshots or b.snapshot_id in requested_snapshots)]
+                                and b.document_id.startswith("upload_")
+                                and b.document_id in requested_ids
+                                and b.snapshot_id in requested_snapshots]
                     allowed = {b.snapshot_id for b in bindings}
                     records = [record for record in self.server.store.list_snapshots() if record.snapshot_id in allowed]
                     policy_records = [record for record in records if record.document_kind == "policy"]

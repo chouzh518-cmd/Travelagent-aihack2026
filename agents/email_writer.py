@@ -12,12 +12,12 @@ from llm.orcarouter import configured, create_llm, safe_error_message
 FREE_MODEL = "orcarouter/free"
 
 
-def manual_template(project_name: str, recipient: str, purpose: str) -> tuple[str, str]:
-    subject = f"【出張計画のご確認】{project_name}"
+def manual_template(plan_title: str, recipient: str, purpose: str) -> tuple[str, str]:
+    subject = f"【出張計画のご確認】{plan_title}"
     body = (
         f"{recipient or '{{宛名}}'} 様\n\n"
         "お疲れさまです。\n"
-        f"{project_name}に関する出張について、{purpose or '下記の内容'}をご確認いただきたく、ご連絡しました。\n\n"
+        f"{plan_title}に関する出張について、{purpose or '下記の内容'}をご確認いただきたく、ご連絡しました。\n\n"
         "【出張目的】\n"
         "（目的を入力してください）\n\n"
         "【行程・費用】\n"
@@ -39,14 +39,14 @@ def _parse_response(raw: str) -> tuple[str, str]:
     return subject.strip()[:300], body.strip()[:12000]
 
 
-def generate(*, project_name: str, recipient: str, purpose: str,
-             project_context: str, plan_context: str, conversation_context: str) -> dict:
+def generate(*, plan_title: str, recipient: str, purpose: str,
+             document_context: str, plan_context: str, conversation_context: str) -> dict:
     trace_id = new_trace_id()
     prompt_data = {
-        "project_name": project_name,
+        "plan_title": plan_title,
         "recipient": recipient,
         "purpose": purpose,
-        "project_context": project_context,
+        "document_context": document_context,
         "plan_context": plan_context,
         "conversation_context": conversation_context,
     }
@@ -61,7 +61,7 @@ def generate(*, project_name: str, recipient: str, purpose: str,
     if not configured():
         record(trace_id, "email_generation", "OrcaRouter", "not_configured", model_route=FREE_MODEL,
                tier=complexity["tier"], score=complexity["score"])
-        subject, body = manual_template(project_name, recipient, purpose)
+        subject, body = manual_template(plan_title, recipient, purpose)
         return {"status": "maintenance", "subject": subject, "body": body}
 
     system = (
@@ -88,5 +88,5 @@ def generate(*, project_name: str, recipient: str, purpose: str,
         record(trace_id, "email_generation", "OrcaRouter", "failed", model_route=FREE_MODEL,
                tier=complexity["tier"], score=complexity["score"],
                error_code=trace_error_code(message))
-        subject, body = manual_template(project_name, recipient, purpose)
+        subject, body = manual_template(plan_title, recipient, purpose)
         return {"status": "maintenance", "subject": subject, "body": body}

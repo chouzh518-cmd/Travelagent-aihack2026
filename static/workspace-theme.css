@@ -222,6 +222,65 @@
   .topbar-status-dot{box-shadow:0 0 0 3px #8ec46822}
 }
 
+/* The document manager is the first actionable surface on entry. */
+.document-center{
+  position:relative;margin:22px 0 0;padding:22px 25px 19px;border:1px solid #cbdcc9;border-left:4px solid #7d9f68;
+  border-radius:12px;background:linear-gradient(118deg,#f9fbf5 0%,#eef5e9 100%);box-shadow:0 12px 30px rgba(37,69,52,.055);
+}
+.document-center-heading{display:flex;align-items:center;justify-content:space-between;gap:20px}
+.document-center-heading h2{margin:0;color:#173f39;font-family:"Noto Serif JP","Yu Mincho","MS PMincho",serif;font-size:19px;font-weight:500;line-height:1.45}
+.document-center-heading p{margin:5px 0 0;color:#687d70;font-size:10px;line-height:1.7}
+.document-center .eyebrow{display:block;margin:0 0 4px;color:#718d68;font-size:9px;font-weight:700;letter-spacing:.13em}
+.document-center .attach-button{min-height:40px;padding:9px 15px;border:1px solid #b7ceaa;border-radius:7px;background:#fffefa;color:#355c43;font-size:10px;font-weight:700;white-space:nowrap}
+.document-center .attach-button:hover{border-color:#89ad78;background:#f5faef;box-shadow:0 4px 12px #52744c16;transform:translateY(-1px)}
+.document-center .chat-upload-state{margin-top:14px}
+.document-center .chat-upload-list{margin-top:12px}
+.document-center .chat-upload-item{padding:8px 10px;border:1px solid #dce7d8;border-radius:7px;background:#fffefa}
+.small-status.is-unavailable{color:#96624a}
+.topbar-status-dot{animation:status-glow 2.6s ease-in-out infinite}
+.work-area{margin-top:27px}
+.section-title-row{align-items:end}
+.section-title-row h2{font-family:"Noto Serif JP","Yu Mincho","MS PMincho",serif;font-weight:500;letter-spacing:.01em}
+.chat-messages{scroll-behavior:smooth}
+.proposal-followup{scroll-margin-top:94px}
+.proposal-followup:target{animation:followup-arrival .55s ease-out}
+@keyframes followup-arrival{from{box-shadow:0 0 0 5px #b8d78755}to{box-shadow:0 0 0 0 #b8d78700}}
+@media(max-width:640px){
+  .document-center{margin-top:16px;padding:17px 15px 15px;border-radius:10px}
+  .document-center-heading{align-items:flex-start;flex-direction:column;gap:12px}
+  .document-center-heading h2{font-size:17px}
+  .document-center .attach-button{min-height:38px}
+  .work-area{margin-top:23px}
+}
+@media(prefers-reduced-motion:reduce){.proposal-followup:target{animation:none}}
+
+/* Editorial motion cues keep navigation, uploads, and answers responsive. */
+.document-center,.work-area{animation:surface-arrive .52s cubic-bezier(.2,.72,.25,1) both}
+.work-area{animation-delay:.08s}
+.page-bookmarks{animation:nav-arrive .42s ease-out both}
+.document-center{transition:box-shadow .24s ease,border-color .24s ease,transform .24s ease}
+.document-center:focus-within,.document-center:hover{border-color:#9ab78b;box-shadow:0 16px 34px rgba(37,69,52,.09);transform:translateY(-1px)}
+.chat-message{animation:message-arrive .3s cubic-bezier(.18,.72,.3,1) both}
+.pending-message p:after{content:"";display:inline-block;width:14px;height:14px;margin-left:8px;vertical-align:-2px;border:2px solid #bbd3ae;border-right-color:#507d56;border-radius:50%;animation:waiting-turn .8s linear infinite}
+.policy-evidence-card{animation:evidence-arrive .35s ease-out both}
+.policy-evidence-card{margin-top:12px;padding:13px 15px;border:1px solid #dfe9db;border-radius:8px;background:linear-gradient(135deg,#fbfcf9 0%,#f4f8f0 100%)}
+.policy-evidence-title{margin:0 0 6px;color:#315544;font-size:11px;font-weight:700;line-height:1.7}
+.policy-evidence-location{margin:4px 0;color:#75877a;font-size:9px}
+.policy-evidence-quote{margin:10px 0 0;padding:11px 13px;border-left:3px solid #a7c58d;border-radius:0 6px 6px 0;background:#fffefa;color:#354b3f;font-size:10px;line-height:1.9;white-space:pre-wrap}
+.policy-evidence-card:nth-of-type(2){animation-delay:.05s}
+.policy-evidence-card:nth-of-type(3){animation-delay:.1s}
+.proposal-panel,.email-panel{animation:surface-arrive .42s cubic-bezier(.2,.72,.25,1) both}
+@keyframes surface-arrive{from{opacity:0;transform:translateY(13px)}to{opacity:1;transform:translateY(0)}}
+@keyframes nav-arrive{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes message-arrive{from{opacity:0;transform:translateY(8px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes evidence-arrive{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@keyframes waiting-turn{to{transform:rotate(360deg)}}
+@keyframes status-glow{50%{box-shadow:0 0 0 5px #8ec46812,0 0 15px #8ec4686a}}
+@media(prefers-reduced-motion:reduce){
+  .document-center,.work-area,.page-bookmarks,.chat-message,.policy-evidence-card,.proposal-panel,.email-panel{animation:none}
+  .document-center,.pending-message p:after,.topbar-status-dot{transition:none;animation:none}
+}
+
 /* Bookmark navigation connects the consultation, plan, and email stages. */
 .page-bookmarks{
   position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;
