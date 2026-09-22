@@ -281,9 +281,12 @@ function collectTripConditions() {
     const value = read(id);
     if (value) conditions[key] = value;
   }
-  for (const [key, id] of [["departure_at", "trip-departure-input"], ["arrive_by", "trip-arrive-input"], ["return_by", "trip-return-input"]]) {
-    const value = read(id);
-    if (value) conditions[key] = `${value}:00+09:00`;
+  for (const [prefix, datetimeKey] of [["departure", "departure_at"], ["arrive", "arrive_by"], ["return", "return_by"]]) {
+    const date = read(`trip-${prefix}-date-input`);
+    const time = read(`trip-${prefix}-time-input`);
+    if (date) conditions[`${prefix}_date`] = date;
+    if (time) conditions[`${prefix}_time`] = time;
+    if (date && time) conditions[datetimeKey] = `${date}T${time}:00+09:00`;
   }
   const lodging = read("trip-lodging-input");
   if (lodging) conditions.lodging_required = lodging === "true";
@@ -330,7 +333,7 @@ function displayFieldValue(key, value) {
   if (value === true) return "必要";
   if (value === false) return "不要";
   if (key === "budget_jpy" && typeof value === "number") return `¥${value.toLocaleString("ja-JP")}`;
-  if (key === "duration_limit_days" && typeof value === "number") return `${value}日以内`;
+  if (key === "duration_limit_days" && typeof value === "number") return `${value}日間`;
   return String(value);
 }
 
@@ -353,26 +356,32 @@ function simulationScenario(fields) {
   const tokyoNow = tokyoIso();
   const dateParts = tokyoNow.slice(0, 10).split("-").map(Number);
   const sampleDate = new Date(Date.UTC(dateParts[0], dateParts[1] - 1, dateParts[2] + 1)).toISOString().slice(0, 10);
-  const departureDate = typeof fields.departure_at === "string" && /^\d{4}-\d{2}-\d{2}/.test(fields.departure_at)
-    ? fields.departure_at.slice(0, 10) : sampleDate;
+  const departureDate = fields.departure_date || (typeof fields.departure_at === "string" && /^\d{4}-\d{2}-\d{2}/.test(fields.departure_at)
+    ? fields.departure_at.slice(0, 10) : sampleDate);
   let departureAt = fields.departure_at;
   if (!departureAt) {
-    departureAt = departureDate + "T08:00:00+09:00";
-    assumptions.push("模擬用出発日時：" + departureAt + "（出発日は未入力のため翌日、時刻は例示値）");
+    const clock = fields.departure_time || "08:00";
+    departureAt = departureDate + "T" + clock + ":00+09:00";
+    assumptions.push("模擬用出発日時：" + departureAt + (fields.departure_date
+      ? "（日付は入力値、時刻は未入力のため模擬値）" : "（出発日は未入力のため翌日、時刻は模擬値）"));
   }
   const deadlineClock = typeof fields.arrival_deadline === "string"
     ? fields.arrival_deadline.match(/(?:^|\D)([01]?\d|2[0-3]):([0-5]\d)(?:\D|$)/) : null;
   let arriveBy = fields.arrive_by;
   if (!arriveBy) {
-    const clock = deadlineClock ? deadlineClock[1].padStart(2, "0") + ":" + deadlineClock[2] : "12:00";
-    arriveBy = departureDate + "T" + clock + ":00+09:00";
+    const clock = fields.arrive_time || (deadlineClock ? deadlineClock[1].padStart(2, "0") + ":" + deadlineClock[2] : "12:00");
+    arriveBy = (fields.arrive_date || departureDate) + "T" + clock + ":00+09:00";
     assumptions.push("模擬用到着希望時刻：" + arriveBy + (deadlineClock
-      ? "（日付は未入力のため例示）" : "（具体時刻は未入力のため正午を例示）"));
+      ? "（日付は未入力のため模擬値）" : "（入力時刻がないため模擬値）"));
   }
   let returnBy = fields.return_by;
   if (!returnBy) {
-    returnBy = departureDate + "T20:00:00+09:00";
-    assumptions.push("模擬用帰着期限：" + returnBy + "（未入力のため同日 20:00 を例示）");
+    const returnDate = fields.return_date || departureDate;
+    const clock = fields.return_time || "20:00";
+    returnBy = returnDate + "T" + clock + ":00+09:00";
+    assumptions.push("模擬用帰着日時：" + returnBy + (fields.return_date
+      ? "（日付は入力値" + (fields.return_time ? "）" : "、時刻は模擬値）")
+      : "（帰着日は未入力" + (fields.return_time ? "）" : "、時刻も模擬値）")));
   }
   const lodgingRequired = typeof fields.lodging_required === "boolean" ? fields.lodging_required : false;
   if (lodgingRequired !== fields.lodging_required) assumptions.push("模擬用宿泊：不要（宿泊の要否が未入力のため例示）");
@@ -455,6 +464,45 @@ async function importFile(file) {
   return result;
 }
 
+function applyParsedTripFields(parsed) {
+  const trip = parsed.trip || {};
+  const context = parsed.date_context || {};
+  const setIfPresent = (id, value) => {
+    if (value !== undefined && value !== null && value !== "") byId(id).value = value;
+  };
+  setIfPresent("trip-origin-input", trip.origin);
+  setIfPresent("trip-destination-input", trip.destination);
+  setIfPresent("trip-purpose-input", trip.purpose);
+  if (typeof trip.lodging_required === "boolean") setIfPresent("trip-lodging-input", String(trip.lodging_required));
+  const dateTimeFields = [
+    ["departure_at", "departure_date", "departure_time", "trip-departure-date-input", "trip-departure-time-input", context.departure_date],
+    ["arrive_by", "arrive_date", "arrive_time", "trip-arrive-date-input", "trip-arrive-time-input", null],
+    ["return_by", "return_date", "return_time", "trip-return-date-input", "trip-return-time-input", context.return_date],
+  ];
+  for (const [datetimeKey, dateKey, timeKey, dateId, timeId, contextualDate] of dateTimeFields) {
+    const datetime = trip[datetimeKey];
+    if (typeof datetime === "string") {
+      const match = datetime.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+      if (match) {
+        setIfPresent(dateId, match[1]);
+        setIfPresent(timeId, match[2]);
+      }
+    }
+    setIfPresent(dateId, parsed[dateKey] || contextualDate);
+    if (parsed[timeKey]) setIfPresent(timeId, parsed[timeKey]);
+  }
+  if (Number.isInteger(parsed.duration_limit_days) && parsed.duration_limit_days > 0) {
+    byId("trip-duration-input").value = parsed.duration_limit_days;
+  }
+  if (Number.isInteger(parsed.budget_jpy) && parsed.budget_jpy > 0) {
+    byId("trip-budget-input").value = parsed.budget_jpy;
+  }
+}
+
+function isPlanRequest(message) {
+  return /(?:出張|出差|旅行|学会|カンファレンス|セミナー|展示会|研修会|会议|研讨会|\d+泊\d+日|\d+(?:晚|夜)\d+天)|(?:参加したい|参加する|出席したい|訪問したい|出張したい|旅行したい)|(?:参加|出席).{0,60}(?:学会|カンファレンス|セミナー|展示会|会议|研讨会)/u.test(message);
+}
+
 byId("chat-input").addEventListener("input", updateComposerActions);
 byId("chat-input").addEventListener("keydown", event => {
   if (event.key !== "Enter" || event.shiftKey || event.isComposing || event.keyCode === 229) return;
@@ -501,6 +549,14 @@ byId("chat-form").addEventListener("submit", async event => {
   if (state.activeAction || state.uploading) return;
   const message = byId("chat-input").value.trim();
   if (!message) return;
+  if (isPlanRequest(message)) {
+    state.proposalFollowupAnswer = "";
+    state.manualFallbackFields = null;
+    byId("chat-fallback").hidden = true;
+    byId("chat-upload-state").hidden = true;
+    await generateProposal();
+    return;
+  }
   const history = state.chatMessages.slice(-12);
   state.proposalFollowupAnswer = "";
   state.manualFallbackFields = null;
@@ -558,6 +614,10 @@ async function buildProposal() {
           for (const key of ["origin", "destination", "purpose", "lodging_required", "departure_at", "arrive_by", "return_by"]) {
             if (parsed.trip?.[key] !== undefined && parsed.trip[key] !== null) fields[key] = parsed.trip[key];
           }
+          if (parsed.date_context?.departure_date) fields.departure_date = parsed.date_context.departure_date;
+          if (parsed.date_context?.return_date) fields.return_date = parsed.date_context.return_date;
+          if (Number.isInteger(parsed.duration_limit_days)) fields.duration_limit_days = parsed.duration_limit_days;
+          applyParsedTripFields(parsed);
           if (Number.isInteger(parsed.budget_jpy) && parsed.budget_jpy > 0) fields.budget_jpy = parsed.budget_jpy;
         }
       }
@@ -569,6 +629,10 @@ async function buildProposal() {
         for (const key of ["origin", "destination", "purpose", "lodging_required", "departure_at", "arrive_by", "return_by"]) {
           if (parsed.trip?.[key] !== undefined && parsed.trip[key] !== null) fields[key] = parsed.trip[key];
         }
+        if (parsed.date_context?.departure_date) fields.departure_date = parsed.date_context.departure_date;
+        if (parsed.date_context?.return_date) fields.return_date = parsed.date_context.return_date;
+        if (Number.isInteger(parsed.duration_limit_days)) fields.duration_limit_days = parsed.duration_limit_days;
+        applyParsedTripFields(parsed);
         if (Number.isInteger(parsed.budget_jpy) && parsed.budget_jpy > 0) fields.budget_jpy = parsed.budget_jpy;
       }
     } catch (error) {
@@ -579,12 +643,12 @@ async function buildProposal() {
   if (state.manualFallbackFields) Object.assign(fields, state.manualFallbackFields);
   const missing = [];
   const hasValue = value => value !== undefined && value !== null && value !== "" && value !== "未確認";
-  for (const [key, label] of [
-    ["origin", "出発地"], ["destination", "目的地"], ["purpose", "出張目的"],
-    ["departure_at", "希望出発日時"], ["arrive_by", "到着希望日時"], ["return_by", "希望帰着日時"],
-  ]) {
+  for (const [key, label] of [["origin", "出発地"], ["destination", "目的地"], ["purpose", "出張目的"]]) {
     if (!hasValue(fields[key])) missing.push(label);
   }
+  if (!hasValue(fields.departure_date) && !hasValue(fields.departure_at)) missing.push("希望出発日");
+  if (!hasValue(fields.arrive_by) && !hasValue(fields.arrive_date)) missing.push("到着希望日時");
+  if (!hasValue(fields.return_by) && !hasValue(fields.return_date)) missing.push("希望帰着日");
   if (typeof fields.lodging_required !== "boolean") missing.push("宿泊の要否");
   const budget = fields.budget_jpy === undefined ? "未設定" : valueOrUnknown(fields.budget_jpy, "budget_jpy");
   const simulation = simulationScenario(fields);
@@ -625,7 +689,13 @@ async function buildProposal() {
   });
   // Japanese inputs and Japanese source text do not need an external model.
   // This keeps plan creation available when OrcaRouter is temporarily down.
-  const needsTranslation = translationItems.some(item => /[A-Za-z\uAC00-\uD7AF]/.test(item.text));
+  const needsTranslation = translationItems.some(item => {
+    const japaneseKana = /[\u3040-\u30ff]/.test(item.text);
+    const likelyChinese = /[这们为后过还东车设关与见实现时说从运费对请议]/.test(item.text);
+    const unlocalizedLatin = /[A-Za-z]{4,}/.test(item.text);
+    return /[\uAC00-\uD7AF]/.test(item.text)
+      || !japaneseKana && (likelyChinese || unlocalizedLatin);
+  });
   if (translationItems.length && needsTranslation) {
     let translations;
     try {
@@ -769,9 +839,9 @@ async function buildProposal() {
     `- 行程：${route}`,
     `- 出張期間：${valueOrUnknown(fields.duration_limit_days, "duration_limit_days")}`,
     `- 到着希望時刻：${valueOrUnknown(fields.arrival_deadline, "arrival_deadline")}`,
-    `- 出発日時：${valueOrUnknown(fields.departure_at, "departure_at")}`,
-    `- 到着期限：${valueOrUnknown(fields.arrive_by, "arrive_by")}`,
-    `- 帰着期限：${valueOrUnknown(fields.return_by, "return_by")}`,
+    `- 出発日時：${valueOrUnknown(fields.departure_at || fields.departure_date, "departure_at")}`,
+    `- 到着期限：${valueOrUnknown(fields.arrive_by || fields.arrive_date, "arrive_by")}`,
+    `- 帰着期限：${valueOrUnknown(fields.return_by || fields.return_date, "return_by")}`,
     `- 宿泊：${valueOrUnknown(fields.lodging_required, "lodging_required")}`,
     `- 予算上限：${budget}`,
     "",
@@ -819,7 +889,7 @@ function renderProposal(proposal) {
     date.append(node("span", "作成日"), node("time", createdAt));
     documentHeader.append(date);
   }
-  const selectionStatus = node("p", "計画書内の案を 1 つ選択してください。選択後に承認メールを作成できます。", "proposal-selection-status");
+  const selectionStatus = node("p", "計画書を保存するとメール下書きを自動作成します。行程案を選ぶと、選択した案もメールに反映します。", "proposal-selection-status");
   selectionStatus.setAttribute("role", "status");
   documentHeader.append(selectionStatus);
   content.append(documentHeader);
@@ -1000,7 +1070,7 @@ function selectProposalOption(proposal, planId) {
     if (button) button.textContent = isSelected ? "選択中" : "この案を選択";
   });
   const status = document.querySelector(".proposal-selection-status");
-  if (status) status.textContent = `選択中：${selected}。この案をもとに承認メールを作成できます。`;
+  if (status) status.textContent = `選択中：${selected}。計画書を保存すると、この案を含むメール下書きを作成します。`;
   updateComposerActions();
   syncPageBookmarks();
 }
@@ -1191,7 +1261,13 @@ byId("manual-fallback-form").addEventListener("submit", async event => {
 });
 
 byId("download-proposal").addEventListener("click", () => {
-  if (state.proposal) downloadText(state.proposal.markdown, "出張計画書.md");
+  if (!state.proposal) return;
+  downloadText(state.proposal.markdown, "出張計画書.md");
+  byId("email-output").hidden = true;
+  byId("email-status").hidden = true;
+  setActivePage("email-panel");
+  byId("email-panel").scrollIntoView({behavior: "smooth", block: "start"});
+  byId("email-form").requestSubmit();
 });
 
 byId("generate-email").addEventListener("click", () => {
@@ -1240,7 +1316,7 @@ byId("email-form").addEventListener("submit", async event => {
   updateComposerActions();
   try {
     const result = await api("/api/email/generate", {
-      plan_title: "出張計画",
+      plan_title: state.proposal?.fields?.purpose || "出張計画",
       recipient,
       purpose,
       document_context: uploadedDocumentContext(),

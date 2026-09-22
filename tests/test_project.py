@@ -223,6 +223,18 @@ class BusinessTests(unittest.TestCase):
         self.assertEqual(result["trip"]["return_by"], "2026-09-30T18:00:00+09:00")
         self.assertIn("arrive_by", result["missing_fields"])
 
+    def test_japanese_request_extracts_next_week_stay_and_conference_without_inventing_times(self):
+        result = parse_text("来週の金曜から2泊3日で、東京の〇〇学会に参加したい",
+                            base_time=datetime.fromisoformat("2026-09-22T12:00:00+09:00"))
+        self.assertEqual(result["trip"]["destination"], "東京")
+        self.assertEqual(result["trip"]["purpose"], "〇〇学会への参加")
+        self.assertIsNone(result["trip"]["departure_at"])
+        self.assertIsNone(result["trip"]["return_by"])
+        self.assertTrue(result["trip"]["lodging_required"])
+        self.assertEqual(result["duration_limit_days"], 3)
+        self.assertEqual(result["date_context"]["departure_date"], "2026-10-02")
+        self.assertEqual(result["date_context"]["return_date"], "2026-10-04")
+
     def test_duration_does_not_guess_return_date(self):
         result = parse_text("2026-09-23去大阪出差3天",
                             base_time=datetime.fromisoformat("2026-09-21T12:00:00+09:00"))

@@ -94,7 +94,7 @@ def parse_text(text: str, *, base_time: datetime | None = None):
     if base_time is not None and base_time.tzinfo is None:
         return {"status":"invalid_input", "message":"base_time にはタイムゾーンを指定してください。"}
     origin = destination = None
-    place_text = re.sub(r"来週(?:月|火|水|木|金|土|日)(?:曜日|曜)に?", "", text)
+    place_text = re.sub(r"来週(?:の)?(?:月|火|水|木|金|土|日)(?:曜日|曜)に?", "", text)
     place_text = re.sub(r"(?:今日|明日|明後日)", "", place_text)
     route = re.search(r"(?P<origin>[^，,。；;\s]+?)から(?P<destination>[^，,。；;\s]+?)(?:へ|に)(?=[0-9]|日帰り|出張|顧客|訪問|会議|商談|[，,。；;]|$)", place_text)
     if not route:
@@ -112,7 +112,11 @@ def parse_text(text: str, *, base_time: datetime | None = None):
     else:
         japanese_destination = re.search(r"(?P<destination>[^，,。；;\s]+?)(?:へ|に)(?=[0-9]|日帰り|出張|顧客|訪問|会議|商談|[，,。；;]|$)", place_text)
         chinese_destination = re.search(r"去(?P<destination>[^，,。；;\s]+?)(?=下周|今天|明天|后天|当天|当日|\d+天|见客户|拜访客户|参加会议|[，,。；;]|$)", text)
-        dest = japanese_destination or chinese_destination
+        event_destination = re.search(
+            r"(?:^|[、，,。；;])(?P<destination>[^、，,。；;\s]+?)の[^、，,。；;\s]*(?:学会|カンファレンス|会議|セミナー|展示会)に参加", text)
+        chinese_event_destination = re.search(
+            r"(?:^|[、，,。；;])(?P<destination>[^、，,。；;\s]+)的[^、，,。；;\s]*(?:学会|会议|研讨会|展会)(?:想|要|准备)?参加", text)
+        dest = japanese_destination or chinese_destination or event_destination or chinese_event_destination
         if dest:
             destination = dest.group("destination").removesuffix("へ").removesuffix("に")
 
@@ -171,8 +175,16 @@ def parse_text(text: str, *, base_time: datetime | None = None):
             return_clock = clocks[-1][0] if len(clocks) > 1 else None
         if return_date and return_clock:
             return_by = datetime.combine(return_date, return_clock).isoformat() + offset
+    event_match = re.search(r"(?P<event>[^，,。；;\s]{1,60}(?:学会|カンファレンス|会議|セミナー|展示会))(?:に)?参加", text)
+    chinese_event_match = re.search(r"(?P<event>[^，,。；;\s]{1,60}(?:学会|会议|研讨会|展会))(?:想|要|准备)?参加", text)
     purpose_match = re.search(r"(见客户|拜访客户|客户会议|参加会议|参加研讨会|出席会议|顧客訪問|顧客との打合せ|商談|会議|研修|現地確認)", text)
-    purpose = purpose_match.group(0) if purpose_match else None
+    purpose = (event_match.group("event").rsplit("の", 1)[-1] + "への参加" if event_match else
+               chinese_event_match.group("event").rsplit("的", 1)[-1] + "への参加" if chinese_event_match else
+               purpose_match.group(0) if purpose_match else None)
+    stay_match = re.search(r"(?P<nights>\d+)泊(?P<days>\d+)日", text)
+    stay_match = stay_match or re.search(r"(?P<nights>\d+)(?:晚|夜)(?P<days>\d+)天", text)
+    duration_limit_days = int(stay_match.group("days")) if stay_match else None
+    stay_nights = int(stay_match.group("nights")) if stay_match else None
     budget_match = re.search(r"(?:预算(?:上限)?|予算(?:上限)?)(?:为|は|：|:|=)?\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*(万)?\s*(?:元|円)?", text)
     budget_jpy = None
     if budget_match:
@@ -188,7 +200,7 @@ def parse_text(text: str, *, base_time: datetime | None = None):
     )
     if any(term in text for term in no_lodging_terms) or same_day:
         lodging_required = False
-    elif any(term in text for term in ("住宿", "酒店", "过夜", "住一晚", "宿泊", "ホテル", "一泊")):
+    elif stay_nights or any(term in text for term in ("住宿", "酒店", "过夜", "住一晚", "宿泊", "ホテル", "一泊")):
         lodging_required = True
     else:
         lodging_required = None
@@ -197,12 +209,18 @@ def parse_text(text: str, *, base_time: datetime | None = None):
                        arrive_by=arrive_by, return_by=return_by, purpose=purpose,
                        lodging_required=lodging_required, confirmed=False)
     validation = validate_request(trip)
+    return_date_context = (return_date_explicit or
+                           (travel_date + timedelta(days=stay_nights)
+                            if travel_date and stay_nights is not None else
+                            travel_date if travel_date and same_day else None))
     return {"status":validation["status"], "trip":trip.model_dump(), "budget_jpy": budget_jpy,
+            "duration_limit_days": duration_limit_days,
             "missing_fields":validation["missing_fields"], "question":validation["question"],
             "date_note":date_note,
             "date_context":{"departure_date":travel_date.isoformat() if travel_date else None,
-                            "return_date":travel_date.isoformat() if travel_date and same_day else None,
-                            "same_day_return":same_day, "timezone_offset":offset},
+                            "return_date":return_date_context.isoformat() if return_date_context else None,
+                            "same_day_return":same_day, "stay_nights":stay_nights,
+                            "duration_limit_days":duration_limit_days, "timezone_offset":offset},
             "original_text":text,
             "model_api_status":"not_configured",
             "message":"入力文に明記された場所、日付、時刻を抽出しました。不足項目を入力し、確定した日時を確認してください。"}

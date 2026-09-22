@@ -66,9 +66,9 @@
                 <label for="trip-origin-input">出発地<input id="trip-origin-input" class="trip-condition-input" type="text" maxlength="200" autocomplete="off" placeholder="例：東京駅"></label>
                 <label for="trip-destination-input">目的地<input id="trip-destination-input" class="trip-condition-input" type="text" maxlength="200" placeholder="例：大阪市"></label>
                 <label class="trip-condition-wide" for="trip-purpose-input">出張目的<input id="trip-purpose-input" class="trip-condition-input" type="text" maxlength="500" placeholder="例：取引先との打ち合わせ"></label>
-                <label for="trip-departure-input">希望出発日時（日本時間）<input id="trip-departure-input" class="trip-condition-input" type="datetime-local"></label>
-                <label for="trip-arrive-input">到着希望日時（日本時間）<input id="trip-arrive-input" class="trip-condition-input" type="datetime-local"></label>
-                <label for="trip-return-input">希望帰着日時（日本時間）<input id="trip-return-input" class="trip-condition-input" type="datetime-local"></label>
+                <fieldset class="trip-date-field"><legend>希望出発日時（日本時間）</legend><div class="trip-date-pair"><label for="trip-departure-date-input">日付<input id="trip-departure-date-input" class="trip-condition-input" type="date"></label><label for="trip-departure-time-input">時刻（任意）<input id="trip-departure-time-input" class="trip-condition-input" type="time"></label></div></fieldset>
+                <fieldset class="trip-date-field"><legend>到着希望日時（日本時間）</legend><div class="trip-date-pair"><label for="trip-arrive-date-input">日付<input id="trip-arrive-date-input" class="trip-condition-input" type="date"></label><label for="trip-arrive-time-input">時刻（任意）<input id="trip-arrive-time-input" class="trip-condition-input" type="time"></label></div></fieldset>
+                <fieldset class="trip-date-field"><legend>希望帰着日時（日本時間）</legend><div class="trip-date-pair"><label for="trip-return-date-input">日付<input id="trip-return-date-input" class="trip-condition-input" type="date"></label><label for="trip-return-time-input">時刻（任意）<input id="trip-return-time-input" class="trip-condition-input" type="time"></label></div></fieldset>
                 <label for="trip-lodging-input">宿泊の要否<select id="trip-lodging-input" class="trip-condition-input"><option value="">未指定</option><option value="false">不要</option><option value="true">必要</option></select></label>
                 <label for="trip-budget-input">予算上限（円・任意）<input id="trip-budget-input" class="trip-condition-input" type="number" min="1" step="1" placeholder="例：50000"></label>
                 <label for="trip-duration-input">出張期間（日・任意）<input id="trip-duration-input" class="trip-condition-input" type="number" min="1" step="1" placeholder="例：2"></label>
@@ -95,7 +95,7 @@
     <section id="proposal-panel" class="proposal-panel" hidden aria-labelledby="proposal-title">
       <div class="proposal-heading">
         <div><span class="eyebrow">作成結果</span><h2 id="proposal-title">出張計画書</h2></div>
-        <div class="proposal-actions"><button id="download-proposal" class="primary" type="button">計画書を保存 ↓</button></div>
+        <div class="proposal-actions"><button id="download-proposal" class="primary" type="button">計画書を保存してメールへ →</button></div>
       </div>
       <section id="proposal-followup" class="proposal-followup" hidden aria-labelledby="proposal-followup-title">
         <h3 id="proposal-followup-title">作成後に確認する条件</h3>
