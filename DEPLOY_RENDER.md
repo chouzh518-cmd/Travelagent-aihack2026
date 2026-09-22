@@ -4,10 +4,10 @@
 
 ## デプロイ前の準備
 
-1. プロジェクトを**プライベート Git リポジトリ**に置き、Render と接続します。`.env`、`data/policies`、`storage`、`output` はコミットしないでください。`data/projects` は社員向け画面に必要な静的資料のため、匿名化して公開承認を得たものを配布します。`.dockerignore` は実行時の規程スナップショットを除外しますが、`data/projects` は除外しません。
-2. Render では **Blueprint** を選び、リポジトリのルートにある `render.yaml` を使用する方法を推奨します。無料 Web Service、Dockerfile、`/healthz` ヘルスチェックが設定されます。初回作成時に `APP_ACCESS_PASSWORD` と `ORCAROUTER_API_KEY` の 2 つの Secret を入力します。
+1. プロジェクトを**プライベート Git リポジトリ**に置き、Render と接続します。`.env`、`data/policies`、`storage`、`output` はコミットしないでください。`data/projects` は社員向け画面に必要な静的資料のため、匿名化して公開承認を得たものを配布します。`.dockerignore` は `data/policies`、`storage`、`output` を除外しますが、`data/projects` は除外しません。
+2. Render では **Blueprint** を選び、リポジトリのルートにある `render.yaml` を使用する方法を推奨します。無料 Web Service、Dockerfile、`/healthz` ヘルスチェックが設定されます。初回作成時に必須の `APP_ACCESS_PASSWORD` を設定します。モデル用 API Key は Blueprint で要求されません。
 3. Blueprint を使わない場合は、Docker Web Service を手動で作成し、無料コンピュートプラン、デプロイするブランチ、`Dockerfile` を選択します。`APP_DATA_DIR=/var/data`、`APP_BIND_HOST=0.0.0.0`、`PORT=10000` を設定します。無料プランには永続ディスクを追加できません。
-4. チームメンバーのみが知るランダムな `APP_ACCESS_PASSWORD` を設定します。Agent を無料ルートで試す場合は、OrcaRouter の `ORCAROUTER_API_KEY` と `ORCAROUTER_MODEL=orcarouter/free` も設定します。API Key をコードに記載したり Git にコミットしたりしないでください。Render は `RENDER_EXTERNAL_HOSTNAME` を提供し、アプリはその正確なホスト名だけを受け入れます。
+4. チームメンバーのみが知るランダムな `APP_ACCESS_PASSWORD` を設定します。Agent のモデル機能を使う場合に限り、デプロイ後に Render の Environment Variables で `ORCAROUTER_API_KEY` を設定し、`ORCAROUTER_MODEL=orcarouter/free` を使用してください。API Key をコードに記載したり Git にコミットしたりしないでください。Render は `RENDER_EXTERNAL_HOSTNAME` を提供し、アプリはその正確なホスト名だけを受け入れます。
 
    アプリは複雑度ルーターが選択する有料ルートや自動ルートを既定で拒否し、すべてのモデルリクエストで `orcarouter/free` を使用します。組織の明示的な承認を得て `ORCAROUTER_ALLOW_PAID=true` に設定した場合に限り、設定済みの別ルートを許可します。未設定またはその他の値では無料ルートに制限されます。
 5. ヘルスチェックのパスに `/healthz` を設定します。デプロイ後、Render が `https://<選択したサービス名>.onrender.com` の固定 URL を割り当てます。サービス名は Render 全体で一意である必要があります。

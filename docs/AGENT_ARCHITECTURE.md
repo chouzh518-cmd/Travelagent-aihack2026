@@ -1,26 +1,28 @@
-# Agent 结构
+# Agent の構成
 
-## 对话链路
+## リクエストの流れ
 
-1. `app.py` 校验团队访问口令并接收对话请求。
-2. `agents/rag_agent.py` 读取用户的出差条件与短期对话历史，按当前 demo 资料范围调用检索。
-3. `policy_import/` 负责 PDF/图片抽取、OCR、Chroma 向量索引、来源适用范围和资料生命周期。
-4. `rag/evidence_retriever.py` 将经过资料范围校验的片段包装为 LlamaIndex Retriever。
-5. LlamaIndex `ContextChatEngine` 注入来源片段与对话记忆；`llm/orcarouter.py` 通过 OpenAI 兼容适配器调用 OrcaRouter。
-6. 页面展示回答和可展开的原文依据，可将最近一次回答导出为 Markdown 建议书。
+1. `app.py` がアクセス制御とリクエスト形式を検証します。
+2. `agents/rag_agent.py` が選択中プロジェクトと許可された資料範囲を確認します。
+3. `policy_import/` が資料の抽出、OCR、索引、スナップショット、資料の紐付けを管理します。
+4. `rag/evidence_retriever.py` が検索結果を LlamaIndex の Retriever に渡します。
+5. OrcaRouter の API Key が設定されている場合、`llm/orcarouter.py` が OpenAI 互換インターフェースでモデルを呼び出します。
+6. 画面に回答と資料の引用を表示します。条件抽出、費用計算、行程検証はローカルの決定的な処理で行います。
 
-## 职责边界
+## コンポーネントの責務
 
-- `agents/`：面向用户的多轮 Agent 编排和回答策略。
-- `rag/`：检索结果到 LlamaIndex 的适配。
-- `llm/`：模型供应商连接、模型选择和错误映射。
-- `policy_import/`：已存在的资料抽取、向量库和权限绑定，不由 Agent 改写。
-- `core/`：出差字段校验、报价比较等确定性业务流程。
-- `tools/`：航班、列车、酒店等外部工具适配器；尚未配置的工具不会被描述为实时数据。
-- `static/`、`templates/`：网页界面。
+- `agents/`：会話リクエストの処理、意図の整理、資料に基づく回答。
+- `rag/`：許可された検索結果を LlamaIndex に接続。
+- `llm/`：モデル接続、安全なルート選択、エラーの利用者向け説明。
+- `policy_import/`：資料取り込み、検索、スナップショット、アクセス範囲。
+- `core/`：条件抽出、行程・費用の決定的な検証。
+- `tools/`：ローカル模擬サービスと外部連携の境界。未接続のサービスは実データとして扱いません。
+- `static/`、`templates/`：日本語の画面と操作。
 
-模型分流定义在 `config/llm_tiers.json`，免费默认路由为 `orcarouter/free`。设置 `ORCAROUTER_API_KEY` 只表示应用可以尝试发出请求；工作区资格和额度仍可能拒绝免费生成。`ORCAROUTER_MODEL` 可在服务环境中覆盖默认模型。
+## モデル利用と安全境界
 
-OrcaRouter 在 Agent 全流程中的职责、A/B/C/D 评分公式、免费 API 验证结果和模拟数据算法见 [`ORCAROUTER_AGENT_INTERNAL.md`](ORCAROUTER_AGENT_INTERNAL.md)。运行时诊断写入被 Git 忽略的 `output/agent-traces/agent-trace.jsonl`，不通过用户页面展示，不记录 API Key、对话正文或资料原文。不要把密钥存进仓库。
+複雑度の評価式とルート設定は `config/llm_tiers.json`、評価処理は `agents/intent_router.py` にあります。既定では実際のモデルルートを `orcarouter/free` に固定し、有料ルートや自動ルートは `ORCAROUTER_ALLOW_PAID=true` が明示された場合のみ許可します。
 
-东京—大阪出差案例、用户提供的旅费规程截图解读、五个路演维度的证据设计，以及真实数据接入限制见 [`PRESELECTION_DEMO.md`](PRESELECTION_DEMO.md)。该文件为项目组内部准备材料，不作为已验证的公司规程或竞赛官方评分标准。
+モデルによる要約は、ユーザーが明示していない日付、場所、予算などを補完しません。構造化条件はローカルルールで抽出し、見積り計算や規程適合の最終判断をモデルに委ねません。資料の検索結果は根拠の候補であり、規程の有効性や適用範囲の証明ではありません。
+
+実行時トレースは `output/agent-traces/` に保存されます。会話本文、資料原文、API Key、メール宛先は記録しません。トレースおよびその他の実行時データは Git に含めないでください。

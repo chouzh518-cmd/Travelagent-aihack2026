@@ -37,7 +37,7 @@ def trip():
     return TripRequest(trip_id="unit-test", company_id=None, employee_id=None,
                        origin="起点", destination="终点", departure_at="2026-09-20T08:00:00+09:00",
                        arrive_by="2026-09-20T12:00:00+09:00", return_by="2026-09-21T20:00:00+09:00",
-                       purpose="技术边界测试", lodging_required=True, confirmed=True)
+                       purpose="技術境界テスト", lodging_required=True, confirmed=True)
 
 
 def plan():
@@ -364,7 +364,7 @@ class HttpTests(unittest.TestCase):
         cls.thread.join()
 
     def test_home_and_assets(self):
-        for path in ("/", "/static/app.css", "/static/app.js"):
+        for path in ("/", "/static/app.css", "/static/workspace.js"):
             with self.subTest(path=path), urlopen(self.base + path) as result:
                 self.assertEqual(result.status, 200)
                 self.assertIn("frame-ancestors 'none'", result.headers["Content-Security-Policy"])

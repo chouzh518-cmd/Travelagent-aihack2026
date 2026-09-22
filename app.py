@@ -164,7 +164,6 @@ class Handler(BaseHTTPRequestHandler):
         assets = {"/": ("templates/plan_compare.html", "text/html; charset=utf-8"),
                   "/static/app.css": ("static/app.css", "text/css; charset=utf-8"),
                   "/static/workspace-theme.css": ("static/workspace-theme.css", "text/css; charset=utf-8"),
-                  "/static/app.js": ("static/app.js", "text/javascript; charset=utf-8"),
                   "/static/workspace.js": ("static/workspace.js", "text/javascript; charset=utf-8")}
         try:
             if url.path == "/healthz":

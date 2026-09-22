@@ -15,7 +15,5 @@ services:
         value: "10000"
       - key: APP_ACCESS_PASSWORD
         sync: false
-      - key: ORCAROUTER_API_KEY
-        sync: false
       - key: ORCAROUTER_MODEL
         value: orcarouter/free

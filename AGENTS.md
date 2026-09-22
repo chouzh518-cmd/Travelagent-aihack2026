@@ -1,4 +1,4 @@
-# Frontend language
+# フロントエンドの言語
 
-- All user-visible frontend content must be written in Japanese, including page text, labels, placeholders, status messages, validation errors, dialogs, generated assistant responses, and downloadable presentation text.
-- Keep this requirement for all future frontend changes. Technical identifiers, protocol values, file formats, proper names, and user-provided source document contents may remain in their original form when translation would alter meaning or data.
+- 画面上で利用者に表示するすべての文言は日本語にしてください。ページ本文、ラベル、プレースホルダー、状態表示、入力エラー、ダイアログ、生成されるアシスタント回答、ダウンロード可能な資料を含みます。
+- 今後のフロントエンド変更にもこの要件を適用してください。技術識別子、プロトコル値、ファイル形式、固有名詞、利用者が提供した原文資料は、翻訳によって意味やデータが変わる場合は原文のまま保持できます。
