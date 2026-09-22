@@ -1,31 +1,31 @@
-# Render 免费部署准备
+# Render へのデプロイ準備
 
-当前服务默认只监听本机 `127.0.0.1`。Render 免费部署使用容器监听 `0.0.0.0`，运行期资料、Chroma 向量索引和模型缓存统一写入 `/var/data`。免费实例的文件系统是临时的，重启或休眠后上传资料和缓存可能消失。
+現在のサービスは既定でローカルの `127.0.0.1` のみで待ち受けます。Render の無料デプロイでは、コンテナが `0.0.0.0` で待ち受けます。実行時資料、Chroma ベクトルインデックス、モデルキャッシュは `/var/data` に保存します。無料インスタンスのファイルシステムは一時的なため、再起動やスリープ後にアップロード資料とキャッシュが失われる可能性があります。
 
-## 部署前
+## デプロイ前の準備
 
-1. 将本项目代码放入一个**私有 Git 仓库**并连接 Render。不要把 `.env`、`data/policies`、`storage` 或 `output` 提交到仓库；`data/projects` 是员工页面所需的静态项目目录，应按去敏后的项目资料一并发布。`.dockerignore` 只排除运行期规程快照，不排除 `data/projects`。
-2. 推荐在 Render 选择 **Blueprint**，使用仓库根目录的 `render.yaml`。它会选择免费 Web Service、Dockerfile 和 `/healthz` 健康检查。首次创建时只需填写 `APP_ACCESS_PASSWORD` 与 `ORCAROUTER_API_KEY` 两个 secret。
-3. 如果不使用 Blueprint，则手动创建 Docker Web Service，选择免费计算方案、部署分支和 `Dockerfile`，并设置 `APP_DATA_DIR=/var/data`、`APP_BIND_HOST=0.0.0.0`、`PORT=10000`。免费方案不要添加持久磁盘。
-4. 设置随机且仅团队成员知道的 `APP_ACCESS_PASSWORD`。Agent 使用免费路由试运行时，再设置 OrcaRouter 提供的 `ORCAROUTER_API_KEY`，并设置 `ORCAROUTER_MODEL=orcarouter/free`。不要把 API Key 写入代码或提交到 Git。Render 会提供 `RENDER_EXTERNAL_HOSTNAME`；应用只接受该准确主机名的请求。
+1. プロジェクトを**プライベート Git リポジトリ**に置き、Render と接続します。`.env`、`data/policies`、`storage`、`output` はコミットしないでください。`data/projects` は社員向け画面に必要な静的資料のため、匿名化して公開承認を得たものを配布します。`.dockerignore` は実行時の規程スナップショットを除外しますが、`data/projects` は除外しません。
+2. Render では **Blueprint** を選び、リポジトリのルートにある `render.yaml` を使用する方法を推奨します。無料 Web Service、Dockerfile、`/healthz` ヘルスチェックが設定されます。初回作成時に `APP_ACCESS_PASSWORD` と `ORCAROUTER_API_KEY` の 2 つの Secret を入力します。
+3. Blueprint を使わない場合は、Docker Web Service を手動で作成し、無料コンピュートプラン、デプロイするブランチ、`Dockerfile` を選択します。`APP_DATA_DIR=/var/data`、`APP_BIND_HOST=0.0.0.0`、`PORT=10000` を設定します。無料プランには永続ディスクを追加できません。
+4. チームメンバーのみが知るランダムな `APP_ACCESS_PASSWORD` を設定します。Agent を無料ルートで試す場合は、OrcaRouter の `ORCAROUTER_API_KEY` と `ORCAROUTER_MODEL=orcarouter/free` も設定します。API Key をコードに記載したり Git にコミットしたりしないでください。Render は `RENDER_EXTERNAL_HOSTNAME` を提供し、アプリはその正確なホスト名だけを受け入れます。
 
-   应用默认拒绝复杂度分流器选择的有费或自动路由，所有模型请求实际使用 `orcarouter/free`。只有组织明确批准并设置 `ORCAROUTER_ALLOW_PAID=true` 时，才允许使用配置中的其他路由；未设置或其他值均保持免费降级。
-5. 将健康检查路径设为 `/healthz`。部署完成后，Render 会分配 `https://<你选择的服务名>.onrender.com` 固定地址；服务名必须在 Render 全局唯一。
+   アプリは複雑度ルーターが選択する有料ルートや自動ルートを既定で拒否し、すべてのモデルリクエストで `orcarouter/free` を使用します。組織の明示的な承認を得て `ORCAROUTER_ALLOW_PAID=true` に設定した場合に限り、設定済みの別ルートを許可します。未設定またはその他の値では無料ルートに制限されます。
+5. ヘルスチェックのパスに `/healthz` を設定します。デプロイ後、Render が `https://<選択したサービス名>.onrender.com` の固定 URL を割り当てます。サービス名は Render 全体で一意である必要があります。
 
-部署成功后，把 Render 显示的 `https://...onrender.com` 发给其他人即可打开。第一次访问时，页面会要求输入 `APP_ACCESS_PASSWORD`。免费服务空闲 15 分钟后会休眠，首次重新访问需要等待实例启动。如果需要自己的域名，可在 Render 的 Custom Domains 中绑定，不需要修改应用代码。
+デプロイに成功したら、Render に表示された `https://...onrender.com` を共有するとアクセスできます。初回アクセス時に `APP_ACCESS_PASSWORD` の入力が必要です。無料サービスは 15 分間アイドル状態が続くとスリープし、再アクセス時の起動を待つ場合があります。独自ドメインは Render の Custom Domains で設定でき、アプリコードの変更は不要です。
 
-服务需要访问公网才能在首次使用时下载约 220 MB 的 FastEmbed 模型。免费实例重启后可能需要重新下载模型。免费实例不会永久保留 `/var/data` 上的资料快照、Chroma 向量库、模型和运行记录；演示资料应放在 `data/projects` 并随代码发布，用户上传资料只作为临时资料使用。
+初回利用時に FastEmbed モデル（約 220 MB）をダウンロードするため、サービスにはインターネット接続が必要です。無料インスタンスの再起動後にモデルを再ダウンロードする場合があります。無料インスタンスは `/var/data` の資料スナップショット、Chroma ベクトルデータベース、モデル、実行記録を永続保存しません。デモ資料は `data/projects` に置いてコードとともに公開し、利用者のアップロード資料は一時データとして扱ってください。
 
-## 资料访问
+## 資料へのアクセス
 
-页面本身可打开；资料 API、上传和删除操作需要团队访问口令。团队成员首次打开页面时输入同一个 `APP_ACCESS_PASSWORD`。Render Web Service 使用 HTTPS；不要在公开 HTTP 站点上输入访问口令。
+ページ自体は開けますが、資料 API、アップロード、削除操作にはチームアクセスパスワードが必要です。チームメンバーは初回アクセス時に同じ `APP_ACCESS_PASSWORD` を入力します。Render Web Service は HTTPS を使用します。HTTPS でない公開サイトではアクセスパスワードを入力しないでください。
 
-## Agent 配置
+## Agent の設定
 
-本地 PowerShell 可在启动服务前临时设置 `ORCAROUTER_API_KEY` 和 `ORCAROUTER_MODEL=orcarouter/free`。免费路由有请求频率限制；遇到 429 时稍后再试。页面会显示模型和资料库连接状态。Agent 目前依据已上传资料生成建议，不包含实时航班、列车、酒店价格或预订能力。
+ローカルの PowerShell では、サービス起動前に `ORCAROUTER_API_KEY` と `ORCAROUTER_MODEL=orcarouter/free` を一時設定できます。無料ルートにはリクエスト頻度の制限があり、HTTP 429 の場合は時間をおいて再試行してください。画面にはモデルと資料ライブラリの接続状態が表示されます。Agent は現在、アップロード済み資料に基づく提案を生成しますが、リアルタイムの航空便、列車、ホテル料金、予約機能はありません。
 
-Render 免费 Web Service 会在空闲时休眠，且不支持持久磁盘；它不适合保存这个项目上传的资料。以上配置为单实例服务，因为本地 Chroma 库不支持多实例共享写入。
+Render の無料 Web Service はアイドル時にスリープし、永続ディスクを利用できません。このため、プロジェクト資料のアップロード保管には適しません。ローカル Chroma データベースは複数インスタンス間で書き込みを共有できないため、サービスは単一インスタンスで運用してください。
 
-## 备用方案
+## 代替手段
 
-如果 Render 账号、付费持久磁盘或 Docker 构建不可用，先使用同一 Dockerfile 部署到任意支持 Docker 和持久卷的 Web Service 平台；必须保留 `APP_DATA_DIR=/var/data`、`PORT`、`/healthz` 和单实例约束。若暂时没有可用云平台，则只能使用内网穿透临时演示，不能作为长期资料服务，也不要把访问口令用于公开无 HTTPS 地址。
+Render アカウント、永続ディスクの有料プラン、または Docker ビルドが利用できない場合は、同じ Dockerfile を使い、Docker と永続ボリュームに対応した Web Service プラットフォームへデプロイしてください。その場合も `APP_DATA_DIR=/var/data`、`PORT`、`/healthz`、単一インスタンスの制約を維持します。利用可能なクラウド環境がない場合は、イントラネットトンネルによる一時的なデモに限り、長期の資料サービスとして使わないでください。HTTPS のない公開 URL でアクセスパスワードを使用しないでください。

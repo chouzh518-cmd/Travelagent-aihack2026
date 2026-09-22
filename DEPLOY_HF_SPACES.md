@@ -1,40 +1,40 @@
-# Hugging Face Spaces 部署
+# Hugging Face Spaces へのデプロイ
 
-本项目使用 Docker Space。当前应用不是 Gradio 或 Streamlit 页面，直接使用 Docker 可以保留现有的三页前端、计划书生成和天气/日历模擬逻辑。
+本プロジェクトは Docker Space を使用します。現在のアプリは Gradio や Streamlit の画面ではありません。Docker を使用することで、既存の 3 ページ構成、計画書生成、天気・カレンダーのシミュレーションを維持できます。
 
-## 创建 Space
+## Space の作成
 
-1. 在 Hugging Face 创建一个 Space，SDK 选择 **Docker**。
-2. 将本项目文件推送到 Space 仓库。
-3. 根目录的 `README.md` 已包含 `sdk: docker` 和 `app_port: 7860`。
-4. 等待 Docker 构建完成后访问 Space 提供的 `https://<用户名>-<space名>.hf.space` 地址。
+1. Hugging Face で Space を作成し、SDK に **Docker** を選択します。
+2. プロジェクトのファイルを Space リポジトリへ push します。
+3. ルートの `README.md` には `sdk: docker` と `app_port: 7860` が設定されています。
+4. Docker ビルド完了後、Space が提供する `https://<ユーザー名>-<space名>.hf.space` を開きます。
 
-## 必要的 Secrets / Variables
+## 必須の Secrets / Variables
 
-在 Space 的 Settings → Variables and secrets 中设置：
+Space の Settings → Variables and secrets で次を設定します。
 
-- `APP_ACCESS_PASSWORD`：团队访问口令。必须设置。
-- `APP_TRUSTED_HOSTS`：填写 Space 的准确主机名，例如 `<用户名>-<space名>.hf.space`，不要填写协议、路径或通配符。
+- `APP_ACCESS_PASSWORD`：チームのアクセスパスワード。必須です。
+- `APP_TRUSTED_HOSTS`：Space の正確なホスト名（例：`<ユーザー名>-<space名>.hf.space`）。プロトコル、パス、ワイルドカードは指定しません。
 - `APP_BIND_HOST`：`0.0.0.0`。
 - `PORT`：`7860`。
 - `APP_DATA_DIR`：`/var/data`。
 
-`ORCAROUTER_API_KEY` 为可选项；没有配置时，应用仍使用本地规则、规程检索、模擬报价和邮件模板降级路径。
+`ORCAROUTER_API_KEY` は任意です。未設定の場合、アプリはローカルルール、規程検索、模擬見積り、メールテンプレートによる縮退動作を使用します。
 
-## 部署后检查
+## デプロイ後の確認
 
-先打开 `/healthz`，确认返回 HTTP 200，再打开根页面。首次访问会要求输入 `APP_ACCESS_PASSWORD`。确认以下路径：
+最初に `/healthz` を開き、HTTP 200 が返ることを確認してからルートページを開きます。初回アクセスでは `APP_ACCESS_PASSWORD` の入力を求められます。次の操作を確認してください。
 
-1. 选择 `planty` 项目。
-2. 进入「相談」并生成计划书。
-3. 自动进入「計画書」页面。
-4. 计划书显示日历/天气模擬结果；恶劣天气场景显示红色提示。
-5. 使用「メール」页面生成可编辑草稿。
+1. `planty` プロジェクトを選択します。
+2. 「相談」へ進み、計画書を生成します。
+3. 「計画書」ページへ自動で移動することを確認します。
+4. 計画書にカレンダー・天気のシミュレーション結果が表示され、悪天候のシナリオでは赤い注意表示が出ることを確認します。
+5. 「メール」ページで編集可能な下書きを生成します。
 
-## 数据保留说明
+## データの保持
 
-Hugging Face Space 的默认运行磁盘不应当作为长期资料库。未配置持久存储时，重启或重新构建可能清除上传资料、快照和向量索引。正式使用前应配置平台支持的持久存储，或只把 Space 用作去敏演示环境。
+Hugging Face Space の既定の実行ディスクを長期的な資料保管場所として使用しないでください。永続ストレージがない場合、再起動や再ビルドでアップロード資料、スナップショット、ベクトルインデックスが削除されることがあります。本格利用の前にプラットフォーム対応の永続ストレージを構成するか、匿名化したデモ用途に限ってください。
 
-## 备用方案
+## 代替手段
 
-如果 Space 无法使用持久存储，仍可使用公开项目资料和本地模擬数据演示；上传资料和运行快照应在外部受控存储中维护。若 Docker 构建不可用，可使用现有 `render.yaml` 部署到 Render，但必须配置其持久磁盘和两个 secret。
+Space で永続ストレージを利用できない場合も、公開可能なプロジェクト資料とローカル模擬データでデモできます。アップロード資料と実行時スナップショットは、管理された外部ストレージに保管してください。Docker ビルドが利用できない場合は、既存の `render.yaml` を使って Render にデプロイできますが、Render 側で永続ディスクと 2 つの Secret を構成する必要があります。
