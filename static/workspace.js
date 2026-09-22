@@ -20,11 +20,15 @@ const pageOrder = ["work-area", "proposal-panel", "email-panel"];
 let activePage = "work-area";
 let pageScrollFrame = 0;
 
+function isPageAvailable(pageId) {
+  return pageId !== "proposal-panel" || Boolean(state.proposal);
+}
+
 function syncPageBookmarks() {
   const available = {
     "work-area": true,
     "proposal-panel": Boolean(state.proposal),
-    "email-panel": Boolean(state.proposal?.selectedPlanId) || activePage === "email-panel",
+    "email-panel": true,
   };
   const buttons = [...document.querySelectorAll(".page-bookmark")];
   for (const button of buttons) {
@@ -57,7 +61,7 @@ function setActivePage(pageId) {
 }
 
 function openPage(pageId) {
-  if (pageId === "proposal-panel" && !state.proposal) return;
+  if (!isPageAvailable(pageId)) return;
   const target = byId(pageId);
   // A page is intentionally hidden while another page is active. Do not use
   // the current `hidden` state as an availability check, otherwise the
@@ -74,7 +78,7 @@ byId("previous-page").addEventListener("click", () => {
   const currentIndex = pageOrder.indexOf(activePage);
   for (let index = currentIndex - 1; index >= 0; index -= 1) {
     const target = pageOrder[index];
-    if ((target === "work-area") || (target === "proposal-panel" && state.proposal) || (target === "email-panel" && (state.proposal?.selectedPlanId || activePage === "email-panel"))) {
+    if (isPageAvailable(target)) {
       openPage(target);
       return;
     }
@@ -84,7 +88,7 @@ byId("next-page").addEventListener("click", () => {
   const currentIndex = pageOrder.indexOf(activePage);
   for (let index = currentIndex + 1; index < pageOrder.length; index += 1) {
     const target = pageOrder[index];
-    if ((target === "work-area") || (target === "proposal-panel" && state.proposal) || (target === "email-panel" && (state.proposal?.selectedPlanId || activePage === "email-panel"))) {
+    if (isPageAvailable(target)) {
       openPage(target);
       return;
     }
@@ -459,14 +463,22 @@ byId("chat-file").addEventListener("change", async event => {
   status.classList.remove("is-error");
   state.uploading = true;
   updateComposerActions();
+  const failures = [];
   try {
     for (const file of files) {
       status.textContent = `${displayUploadName(file.name)} を読み取っています…`;
-      await importFile(file);
+      try {
+        await importFile(file);
+      } catch (error) {
+        failures.push(`${displayUploadName(file.name)}：${error.message || String(error)}`);
+      }
     }
-  } catch (error) {
-    status.textContent = error.message || String(error);
-    status.classList.add("is-error");
+    if (failures.length) {
+      status.textContent = failures.join("\n");
+      status.classList.add("is-error");
+    } else {
+      status.classList.remove("is-error");
+    }
   } finally {
     state.uploading = false;
     updateComposerActions();
@@ -523,9 +535,21 @@ function valueOrUnknown(value, key) {
 async function buildProposal() {
   const userNotes = state.chatMessages.filter(message => message.role === "user").map(message => message.content);
   const fields = {};
-  if (userNotes.length) {
+  if (state.uploads.length || userNotes.length) {
     try {
       const baseTime = tokyoIso();
+      // Uploaded trip briefs can supply conditions too. Parse their extracted
+      // text in bounded pieces, then let explicit chat/form input take priority.
+      for (const upload of state.uploads) {
+        const text = upload.content || "";
+        for (let offset = 0; offset < text.length; offset += 4000) {
+          const parsed = await api("/api/intent/extract", {text: text.slice(offset, offset + 4000), base_time: baseTime});
+          for (const key of ["origin", "destination", "purpose", "lodging_required", "departure_at", "arrive_by", "return_by"]) {
+            if (parsed.trip?.[key] !== undefined && parsed.trip[key] !== null) fields[key] = parsed.trip[key];
+          }
+          if (Number.isInteger(parsed.budget_jpy) && parsed.budget_jpy > 0) fields.budget_jpy = parsed.budget_jpy;
+        }
+      }
       // Parse each user message separately. Combining old and new messages
       // made the parser treat a previous route/date as the latest condition,
       // so follow-up answers could not reliably override the draft.
@@ -551,7 +575,6 @@ async function buildProposal() {
     if (!hasValue(fields[key])) missing.push(label);
   }
   if (typeof fields.lodging_required !== "boolean") missing.push("宿泊の要否");
-  const route = `${valueOrUnknown(fields.origin, "origin")} → ${valueOrUnknown(fields.destination, "destination")}`;
   const budget = fields.budget_jpy === undefined ? "未設定" : valueOrUnknown(fields.budget_jpy, "budget_jpy");
   const simulation = simulationScenario(fields);
   const uploadedIds = [...new Set(state.uploads.map(item => item.document_id))];
@@ -575,22 +598,51 @@ async function buildProposal() {
         text: hit.chunk?.text || "",
       })).filter(item => item.text);
     } catch (error) {
-      policyEvidenceError = error.message || String(error);
+      policyEvidenceError = "資料検索に失敗しました。";
     }
   }
+  const displayFields = {...fields};
+  const evidenceForProposal = policyEvidence.map(item => ({...item}));
+  const translationItems = [];
+  for (const key of ["origin", "destination", "purpose"]) {
+    if (typeof displayFields[key] === "string" && displayFields[key].trim()) {
+      translationItems.push({id: `field:${key}`, text: displayFields[key]});
+    }
+  }
+  evidenceForProposal.forEach((item, index) => {
+    if (item.text) translationItems.push({id: `evidence:${index}:text`, text: item.text});
+  });
+  // Japanese inputs and Japanese source text do not need an external model.
+  // This keeps plan creation available when OrcaRouter is temporarily down.
+  const needsTranslation = translationItems.some(item => /[A-Za-z\uAC00-\uD7AF]/.test(item.text));
+  if (translationItems.length && needsTranslation) {
+    let translations;
+    try {
+      ({translations} = await api("/api/agent/translate-plan", {items: translationItems}));
+    } catch (error) {
+      throw new Error("入力内容または資料を日本語に整えられなかったため、計画書を作成できませんでした。接続を確認して再試行してください。");
+    }
+    for (const key of ["origin", "destination", "purpose"]) {
+      if (translations[`field:${key}`]) displayFields[key] = translations[`field:${key}`];
+    }
+    evidenceForProposal.forEach((item, index) => {
+      if (translations[`evidence:${index}:text`]) item.text = translations[`evidence:${index}:text`];
+    });
+  }
+  const route = `${valueOrUnknown(displayFields.origin, "origin")} → ${valueOrUnknown(displayFields.destination, "destination")}`;
   let simulationResult = null;
   let simulationError = "";
   try {
     simulationResult = await api("/api/simulation/offers", simulation.trip);
   } catch (error) {
-    simulationError = error.message || String(error);
+    simulationError = "模擬行程の取得に失敗しました。";
   }
   let travelContext = null;
   let contextError = "";
   try {
     travelContext = await api("/api/travel-context", simulation.trip);
   } catch (error) {
-    contextError = error.message || String(error);
+    contextError = "日程・天候情報の取得に失敗しました。";
   }
   let workflowResult = null;
   let workflowError = "";
@@ -603,7 +655,7 @@ async function buildProposal() {
       snapshot_ids: [...new Set(selectedDocuments.map(document => document.snapshot_id).filter(Boolean))],
     });
   } catch (error) {
-    workflowError = error.message || String(error);
+    workflowError = "サーバー側の確認に接続できませんでした。";
   }
   const workflowStatusLabels = {
     needs_rule_review: "計算結果と規程を人が確認してください",
@@ -650,7 +702,7 @@ async function buildProposal() {
         "  既知費目の模擬小計：" + yen(subtotal) + "（日当など金額不明の費目を除く）",
         "  予算との比較：" + (budgetDelta === null ? "予算未登録" : budgetDelta > 0 ? yen(budgetDelta) + " 超過" : yen(-budgetDelta) + " 以内"),
         "  空席：" + (details.seat_inventory?.label || "未確認"),
-        ...(details.hotel ? ["  宿泊候補：" + details.hotel.name + "、" + yen(details.hotel.nightly_price_jpy) + "／泊（架空の施設・金額）"] : []),
+        ...(details.hotel ? ["  宿泊候補：目的地周辺の模擬施設、" + yen(details.hotel.nightly_price_jpy) + "／泊（架空の施設・金額）"] : []),
       ];
     })
     : ["模擬データの生成を完了できませんでした：" + (simulationError || "返却データがありません。")];
@@ -659,7 +711,7 @@ async function buildProposal() {
   const contextLines = travelContext ? [
     `- カレンダー：${travelContext.calendar?.data_kind === "simulation" ? "模擬確認" : "確認済み"}`,
     `- 天気：${travelContext.weather?.data_kind === "simulation" ? "模擬確認" : "確認済み"}`,
-    ...(weatherItems.map(item => `- ${item.date} ${item.destination}：${item.condition}、移動リスク ${item.transport_risk}`)),
+    ...(weatherItems.map(item => `- ${item.date} ${displayFields.destination || item.destination}：${item.condition}、移動リスク ${item.transport_risk}`)),
     ...((travelContext.issues || []).map(issue => `- 注意：${issue}`)),
   ] : [`- 日程・天候確認を実行できませんでした：${contextError || "返却データがありません。"}`];
   const missingLines = missing.length ? [
@@ -672,25 +724,25 @@ async function buildProposal() {
   const policySupplementLines = policyEvidence.length
     ? [
       "",
-      "## 添付資料から検索した制度の原文",
+      "## 添付資料から検索した制度情報（日本語訳）",
       "",
-      "以下は利用者が追加した資料をテキストブロック単位で検索して得た原文抜粋です。要約、適用可否の判断、記載されていない条件の補足はしていません。",
-      ...policyEvidence.flatMap((item, index) => [
+      "以下は利用者が追加した資料を検索し、日本語に翻訳した内容です。引用元と記載箇所は資料情報から取得し、翻訳で規程の解釈や適用可否は判断していません。",
+      ...evidenceForProposal.flatMap((item, index) => [
         "",
         `### 根拠 ${index + 1}：${item.title}`,
         ...(item.article_label ? [`条項表示：${item.article_label}`] : []),
         ...item.locations.map(location => `資料位置：${[location.page_number ? `p.${location.page_number}` : "", `ブロック ${location.block_index}`, location.locator].filter(Boolean).join(" / ")}`),
-        "原文抜粋：",
+        "資料記載内容の日本語訳（原文は添付資料の該当箇所をご確認ください）：",
         ...item.text.split(/\r?\n/).map(line => `> ${line}`),
       ]),
     ]
     : [
       "",
-      "## 添付資料から検索した制度の原文",
+      "## 添付資料から検索した制度情報（日本語訳）",
       "",
       uploadedIds.length
         ? `資料の条項検索を完了できませんでした：${policyEvidenceError || "検索結果に該当箇所がありませんでした。"} 制度を推測して補っていません。`
-        : "利用者から資料が追加されていないため、制度の補足は作成していません。資料を追加して計画書を作り直すと、該当する原文抜粋を表示します。",
+        : "利用者から資料が追加されていないため、制度の補足は作成していません。資料を追加して計画書を作り直すと、該当する資料情報を日本語で表示します。",
     ];
   const lines = [
     "# 出張計画書",
@@ -700,9 +752,9 @@ async function buildProposal() {
     "## 出張概要",
     "",
     "- 対象：今回の出張",
-    `- 出張目的：${valueOrUnknown(fields.purpose, "purpose")}`,
-    `- 出発地：${valueOrUnknown(fields.origin, "origin")}`,
-    `- 目的地：${valueOrUnknown(fields.destination, "destination")}`,
+    `- 出張目的：${valueOrUnknown(displayFields.purpose, "purpose")}`,
+    `- 出発地：${valueOrUnknown(displayFields.origin, "origin")}`,
+    `- 目的地：${valueOrUnknown(displayFields.destination, "destination")}`,
     `- 行程：${route}`,
     `- 出張期間：${valueOrUnknown(fields.duration_limit_days, "duration_limit_days")}`,
     `- 到着希望時刻：${valueOrUnknown(fields.arrival_deadline, "arrival_deadline")}`,
@@ -739,8 +791,8 @@ async function buildProposal() {
     ...policySupplementLines,
     "",
   ];
-  return {markdown: lines.join("\n"), fields, missing, userNotes, travelContext,
-    simulationResult, policyEvidence, selectedPlanId: null};
+  return {markdown: lines.join("\n"), fields: displayFields, missing, userNotes, travelContext,
+    simulationResult, policyEvidence: evidenceForProposal, selectedPlanId: null};
 }
 
 function renderProposal(proposal) {
@@ -894,8 +946,8 @@ function renderProposal(proposal) {
   }
   if (proposal.policyEvidence?.length) {
     const sourceSection = node("section", undefined, "proposal-section policy-evidence-section");
-    sourceSection.append(node("h3", "添付資料から検索した制度の原文", "proposal-section-title"));
-    sourceSection.append(node("p", "利用者が追加した資料をブロック単位で検索した原文抜粋です。制度の要約や適用可否の判断は行っていません。", "proposal-copy"));
+    sourceSection.append(node("h3", "添付資料から検索した制度情報（日本語訳）", "proposal-section-title"));
+    sourceSection.append(node("p", "利用者が追加した資料を検索し、日本語に翻訳した内容です。引用元と記載箇所は資料情報から取得し、翻訳で規程の解釈や適用可否は判断していません。", "proposal-copy"));
     for (const [index, evidence] of proposal.policyEvidence.entries()) {
       const card = node("article", undefined, "policy-evidence-card");
       card.append(node("h4", `根拠 ${index + 1}：${evidence.title}`, "policy-evidence-title"));

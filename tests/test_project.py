@@ -382,9 +382,9 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(value["status"], "success")
         self.assertEqual(value["plans"][0]["plan_id"], "unit-test")
 
-    def test_demo_catalog_has_two_sources(self):
+    def test_demo_catalog_lists_only_user_uploads(self):
         with urlopen(self.base + "/api/snapshots") as result:
-            self.assertEqual(len(json.load(result)), 2)
+            self.assertEqual(json.load(result), [])
 
     def test_natural_language_api_returns_missing_fields_and_absolute_date(self):
         request = Request(self.base + "/api/intent", data=json.dumps({
@@ -394,16 +394,15 @@ class HttpTests(unittest.TestCase):
             value = json.load(response)
         self.assertEqual(value["date_context"]["departure_date"], "2026-09-30")
 
-    def test_rules_api_returns_source_bounded_demo_evidence(self):
+    def test_rules_api_rejects_bundled_sources(self):
         record = next(r for r in self.server.store.list_snapshots() if r.document_id == "jrfu_domestic_travel")
         payload = {"company_id":None, "employee_scope":None, "document_ids":[record.document_id],
                    "snapshot_ids":[record.snapshot_id], "usage_mode":"demo"}
         request = Request(self.base + "/api/rules", data=json.dumps(payload).encode(),
                           headers={"Content-Type":"application/json"})
-        with urlopen(request) as response:
-            value = json.load(response)
-        self.assertFalse(value["company_applicable"])
-        self.assertTrue(any(rule["kind"] == "lodging_limit" for rule in value["rules"]))
+        with self.assertRaises(HTTPError) as error:
+            urlopen(request)
+        self.assertEqual(error.exception.code, 403)
 
     def test_cross_origin_write_rejected(self):
         request = Request(self.base + "/api/trip", data=b"{}", headers={"Content-Type":"application/json", "Origin":"https://example.invalid"})

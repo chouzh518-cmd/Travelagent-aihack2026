@@ -18,7 +18,7 @@ from pydantic import Field, ValidationError
 
 from agents.rag_agent import AgentRequest, answer as answer_agent, status as agent_status
 from agents.email_writer import generate as generate_email
-from agents.intent_router import interpret as interpret_intent
+from agents.intent_router import interpret as interpret_intent, translate_plan_items
 from agents.trace_log import error_code as trace_error_code, new_trace_id, record as record_trace
 from core.contracts import NaturalLanguageInput, PlanInput, TripRequest
 from core.emailer import build_draft, save_draft
@@ -130,7 +130,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(401, {"status": "unauthorized", "message": "チームアクセスコードを入力してください。"})
                 return False
         path = urlsplit(self.path).path
-        if path == "/api/login" or path.startswith("/api/documents/") or path in {"/api/import", "/api/agent/chat", "/api/intent", "/api/intent/extract",
+        if path == "/api/login" or path.startswith("/api/documents/") or path in {"/api/import", "/api/agent/chat", "/api/agent/translate-plan", "/api/intent", "/api/intent/extract",
                                             "/api/search", "/api/rules", "/api/simulation/offers", "/api/travel-context", "/api/run", "/api/email/generate"}:
             client_ip = self.client_address[0] if self.client_address else "unknown"
             key = (client_ip, path)
@@ -302,6 +302,16 @@ class Handler(BaseHTTPRequestHandler):
                 result["citations"] = [{key: citation[key] for key in ("reference", "title", "location", "text", "cited") if key in citation}
                                        for citation in result.get("citations", [])]
                 result["status"] = "success" if generated else "needs_attention"
+            elif self.path == "/api/agent/translate-plan":
+                items = payload.get("items") if isinstance(payload, dict) else None
+                if (not isinstance(items, list) or
+                        any(not isinstance(item, dict) or not isinstance(item.get("id"), str)
+                            or not isinstance(item.get("text"), str) for item in items)):
+                    return self.reply(400, {"status": "invalid_input", "message": "日本語化する項目を確認してください。"})
+                try:
+                    result = {"status": "success", "translations": translate_plan_items(items)}
+                except (ValueError, RuntimeError) as exc:
+                    return self.reply(503, {"status": "translation_failed", "message": str(exc)})
             elif self.path == "/api/search":
                 request = SearchRequest.model_validate(payload)
                 if request.usage_mode != "demo" or request.company_id is not None:
