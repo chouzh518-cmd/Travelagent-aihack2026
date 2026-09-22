@@ -44,7 +44,6 @@ def create_simulated_offers(trip: TripRequest) -> dict:
     arrive_by = datetime.fromisoformat(trip.arrive_by)
     return_by = datetime.fromisoformat(trip.return_by)
     nights = _nights(trip, departure, return_by)
-    travelers = trip.travelers
     tokyo_osaka = _is_tokyo_osaka(trip.origin, trip.destination)
 
     choices = [
@@ -70,11 +69,11 @@ def create_simulated_offers(trip: TripRequest) -> dict:
         line_source = "シミュレーション上の固定値。実際の運賃・空席・予約可否は照会していません。"
         costs = [
             {"description": f"新幹線相当・往復（{choice['name']}／余席は未確認）", "category": "transport",
-             "currency": "JPY", "unit_amount": choice["fare"], "quantity": travelers * 2,
-             "unit": "人・片道", "taxes_included": True, "source": line_source, "queried_at": queried_at},
+             "currency": "JPY", "unit_amount": choice["fare"], "quantity": 2,
+             "unit": "往復", "taxes_included": True, "source": line_source, "queried_at": queried_at},
             {"description": "現地移動（行先詳細未指定の模擬値）", "category": "transfer",
-             "currency": "JPY", "unit_amount": choice["transfer"], "quantity": travelers,
-             "unit": "人", "taxes_included": True, "source": "シミュレーション値", "queried_at": queried_at},
+             "currency": "JPY", "unit_amount": choice["transfer"], "quantity": 1,
+             "unit": "一式", "taxes_included": True, "source": "シミュレーション値", "queried_at": queried_at},
             {"description": "日当（規程の表示範囲外のため未算定）", "category": "per_diem",
              "currency": "JPY", "unit_amount": None, "quantity": None,
              "unit": "単価・算定数量ともに未確認", "taxes_included": None,

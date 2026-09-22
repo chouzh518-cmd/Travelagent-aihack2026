@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: travel-desk-agent
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    envVars:
+      - key: APP_BIND_HOST
+        value: 0.0.0.0
+      - key: APP_DATA_DIR
+        value: /var/data
+      - key: PORT
+        value: "10000"
+      - key: APP_ACCESS_PASSWORD
+        sync: false
+      - key: ORCAROUTER_API_KEY
+        sync: false
+      - key: ORCAROUTER_MODEL
+        value: orcarouter/free

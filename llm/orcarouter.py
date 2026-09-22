@@ -24,6 +24,13 @@ def tier_model(tier: str) -> str:
     return config["model_routes"][tier]
 
 
+def effective_model(requested_model: str | None = None) -> str:
+    """Resolve the actual model under the default cost safety gate."""
+    requested = requested_model or selected_model()
+    allow_paid = os.environ.get("ORCAROUTER_ALLOW_PAID", "").strip().lower() == "true"
+    return requested if allow_paid else DEFAULT_MODEL
+
+
 def create_llm(model: str | None = None):
     api_key = os.environ.get("ORCAROUTER_API_KEY", "").strip()
     if not api_key:
@@ -32,8 +39,11 @@ def create_llm(model: str | None = None):
         from llama_index.llms.openai_like import OpenAILike
     except ImportError as exc:
         raise RuntimeError("LlamaIndex の OrcaRouter アダプターがありません。requirements.txt の依存関係を再インストールしてください。") from exc
+    # Paid or automatic tier routes are opt-in. The default keeps the demo on
+    # the free route even when the complexity scorer selects A/B/C.
+    actual_model = effective_model(model)
     return OpenAILike(
-        model=model or selected_model(),
+        model=actual_model,
         api_base=API_BASE,
         api_key=api_key,
         context_window=65536,

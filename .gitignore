@@ -4,8 +4,11 @@ __pycache__/
 tmp/
 storage/chroma/
 storage/*.lock
+storage/bindings.json
 data/policies/snapshots/
 data/policies/sources/
 .env
 models/
 output/agent-traces/
+output/runs/
+output/drafts/

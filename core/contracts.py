@@ -22,7 +22,6 @@ class TripRequest(Model):
     return_by: str | None
     arrive_by: str | None
     purpose: str | None
-    travelers: int | None = Field(default=None, ge=1)
     lodging_required: bool | None
     confirmed: bool = False
     _times = field_validator("departure_at", "return_by", "arrive_by")(aware)
@@ -87,6 +86,7 @@ class PlanInput(Model):
 
 class ToolResult(Model):
     status: Literal["success", "not_configured", "invalid_input", "failed", "no_results"]
+    data_kind: Literal["real", "simulation"] = "real"
     source: str | None
     queried_at: str
     data: list[dict]

@@ -100,19 +100,6 @@
       ],
       "title": "Purpose"
     },
-    "travelers": {
-      "anyOf": [
-        {
-          "minimum": 1,
-          "type": "integer"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Travelers"
-    },
     "lodging_required": {
       "anyOf": [
         {

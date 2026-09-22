@@ -17,7 +17,6 @@ FIELD_LABELS = {
     "出発日時": "departure_at",
     "到着期限": "arrive_by",
     "帰着期限": "return_by",
-    "出張人数": "travelers",
     "宿泊": "lodging_required",
 }
 
@@ -57,10 +56,6 @@ def _extract_fields(content: str):
         days = re.fullmatch(r"([0-9]+)日以内", fields["duration_limit_days"])
         if days:
             fields["duration_limit_days"] = int(days.group(1))
-    if "travelers" in fields:
-        travelers = re.fullmatch(r"([0-9]+)名", fields["travelers"])
-        if travelers:
-            fields["travelers"] = int(travelers.group(1))
     if "lodging_required" in fields:
         lodging = {"必要": True, "不要": False}.get(fields["lodging_required"])
         if lodging is not None:
