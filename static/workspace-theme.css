@@ -411,4 +411,7 @@
  .proposal-followup p{margin:5px 0;color:#6f625b;font-size:11px;line-height:1.7}
  .proposal-followup-missing{font-weight:700;color:#8e513f!important}
  .proposal-followup textarea{margin:8px 0 10px;background:#fffefa}
+ .proposal-followup-answer{margin-top:14px;padding:13px 15px;border:1px solid #d8e3d2;border-left:3px solid #789866;border-radius:6px;background:#f5f8f1}
+ .proposal-followup-answer strong{display:block;color:#405a42;font-size:11px}
+ .proposal-followup-answer p{margin:6px 0 0;color:#354b41;white-space:pre-wrap}
  .proposal-weather-alert{margin:12px 0;padding:12px 14px;border:1px solid #e4b7aa;border-left:4px solid #b74b3d;border-radius:7px;background:#fff0ed;color:#a33d32;font-size:12px;font-weight:700;line-height:1.8}

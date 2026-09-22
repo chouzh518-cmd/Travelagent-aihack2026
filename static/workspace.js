@@ -1,6 +1,6 @@
 "use strict";
 
-const state = {chatMessages: [], uploads: [], proposal: null, activeAction: null, uploading: false, mailBusy: false, followUpAsked: []};
+const state = {chatMessages: [], uploads: [], proposal: null, proposalFollowupAnswer: "", activeAction: null, uploading: false, mailBusy: false, followUpAsked: []};
 const byId = id => document.getElementById(id);
 const node = (tag, text, className) => {
   const element = document.createElement(tag);
@@ -258,6 +258,9 @@ function updateComposerActions() {
   create.textContent = state.activeAction === "proposal" ? "計画書を作成中…" : "計画書を作成 →";
   byId("chat-input").disabled = busy;
   byId("chat-file").disabled = busy;
+  byId("proposal-followup-submit").disabled = busy;
+  byId("proposal-followup-submit").textContent = state.activeAction === "chat"
+    ? "AIに相談しています…" : "AIに相談して計画書を更新";
   byId("create-email-draft").disabled = busy;
   byId("email-recipient").disabled = busy;
   byId("email-purpose").disabled = busy;
@@ -454,6 +457,7 @@ byId("chat-form").addEventListener("submit", async event => {
   const message = byId("chat-input").value.trim();
   if (!message) return;
   const history = state.chatMessages.slice(-12);
+  state.proposalFollowupAnswer = "";
   clearProposal();
   state.chatMessages.push({role: "user", content: message});
   appendUserMessage(message);
@@ -878,9 +882,12 @@ function renderProposal(proposal) {
   }
   const followup = byId("proposal-followup");
   if (followup) {
-    followup.hidden = !proposal.missing.length;
+    followup.hidden = !proposal.missing.length && !state.proposalFollowupAnswer;
     byId("proposal-followup-missing").textContent = proposal.missing.length
       ? `未確認：${proposal.missing.join("、")}` : "追加確認はありません。";
+    const answer = byId("proposal-followup-answer");
+    answer.hidden = !state.proposalFollowupAnswer;
+    byId("proposal-followup-answer-text").textContent = state.proposalFollowupAnswer;
   }
   byId("proposal-panel").hidden = false;
   setActivePage("proposal-panel");
@@ -930,8 +937,9 @@ function openProposalConfirmation() {
   else if (window.confirm(`${confirmation}\n\nこの条件で計画書を作成しますか？`)) generateProposal();
 }
 
-async function generateProposal() {
+async function generateProposal({preserveFollowupAnswer = false} = {}) {
   if (state.activeAction || state.uploading) return;
+  if (!preserveFollowupAnswer) state.proposalFollowupAnswer = "";
   const draftNote = byId("chat-input").value.trim();
   clearProposal();
   if (draftNote) {
@@ -962,13 +970,44 @@ byId("confirm-proposal").addEventListener("click", () => {
   byId("proposal-confirm-dialog").close("confirm");
   generateProposal();
 });
-byId("proposal-followup-submit").addEventListener("click", () => {
+async function askProposalFollowup(message) {
+  const history = state.chatMessages.slice(-12);
+  state.chatMessages.push({role: "user", content: message});
+  appendUserMessage(message, "計画書への追加条件");
+  const answerBox = byId("proposal-followup-answer");
+  const answerText = byId("proposal-followup-answer-text");
+  answerBox.hidden = false;
+  answerText.textContent = "OrcaRouter に相談しています…";
+  state.activeAction = "chat";
+  updateComposerActions();
+  try {
+    const result = await api("/api/agent/chat", {
+      message,
+      history,
+      trip_context: state.proposal?.fields || {},
+      document_ids: state.uploads.map(upload => upload.document_id),
+    });
+    state.proposalFollowupAnswer = result.answer || "回答を作成できませんでした。";
+  } catch (error) {
+    state.proposalFollowupAnswer = error.message || String(error);
+  } finally {
+    state.chatMessages.push({role: "assistant", content: state.proposalFollowupAnswer});
+    const messages = byId("chat-messages");
+    messages.append(renderAssistantMessage(state.proposalFollowupAnswer));
+    answerText.textContent = state.proposalFollowupAnswer;
+    answerBox.hidden = false;
+    state.activeAction = null;
+    updateComposerActions();
+  }
+}
+
+byId("proposal-followup-submit").addEventListener("click", async () => {
   const input = byId("proposal-followup-input");
   const value = input.value.trim();
   if (!value || state.activeAction || state.uploading) return;
-  byId("chat-input").value = value;
   input.value = "";
-  generateProposal();
+  await askProposalFollowup(value);
+  await generateProposal({preserveFollowupAnswer: true});
 });
 
 byId("download-proposal").addEventListener("click", () => {

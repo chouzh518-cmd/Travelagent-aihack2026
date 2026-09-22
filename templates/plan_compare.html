@@ -79,15 +79,18 @@
         <div><span class="eyebrow">作成結果</span><h2 id="proposal-title">出張計画書</h2></div>
         <div class="proposal-actions"><button id="download-proposal" class="primary" type="button">計画書を保存 ↓</button></div>
       </div>
-      <article id="proposal-content" class="proposal-content"></article>
       <section id="proposal-followup" class="proposal-followup" hidden aria-labelledby="proposal-followup-title">
         <h3 id="proposal-followup-title">作成後に確認する条件</h3>
-        <p>計画書は先に作成しました。下の条件を入力すると、内容を更新できます。</p>
+        <p>計画書は先に作成しました。下の条件を AI に相談して会話に加え、内容を更新できます。</p>
         <p id="proposal-followup-missing" class="proposal-followup-missing"></p>
         <label for="proposal-followup-input">追加する条件</label>
         <textarea id="proposal-followup-input" rows="3" maxlength="4000" placeholder="例：出発日、到着期限、予算、宿泊の要否など"></textarea>
-        <button id="proposal-followup-submit" class="primary" type="button">条件を反映して再作成</button>
+        <button id="proposal-followup-submit" class="primary" type="button">AIに相談して計画書を更新</button>
+        <div id="proposal-followup-answer" class="proposal-followup-answer" role="status" aria-live="polite" hidden>
+          <strong>AIからの回答</strong><p id="proposal-followup-answer-text"></p>
+        </div>
       </section>
+      <article id="proposal-content" class="proposal-content"></article>
     </section>
 
     <section id="email-panel" class="email-panel" hidden aria-labelledby="email-title">
