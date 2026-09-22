@@ -1,6 +1,6 @@
 "use strict";
 
-const state = {projects: [], project: null, chatMessages: [], uploads: [], proposal: null, activeAction: null, uploading: false, mailBusy: false, followUpAsked: []};
+const state = {chatMessages: [], uploads: [], proposal: null, proposalFollowupAnswer: "", manualFallbackFields: null, manualFallbackSource: null, activeAction: null, uploading: false, mailBusy: false, followUpAsked: []};
 const byId = id => document.getElementById(id);
 const node = (tag, text, className) => {
   const element = document.createElement(tag);
@@ -9,7 +9,7 @@ const node = (tag, text, className) => {
   return element;
 };
 const fieldLabels = {
-  project_name: "出張プロジェクト", origin: "出発地", destination: "目的地",
+  origin: "出発地", destination: "目的地",
   budget_jpy: "予算上限", duration_limit_days: "出張期間",
   arrival_deadline: "到着希望時刻", purpose: "出張目的", departure_at: "出発日時",
   arrive_by: "到着希望日時", return_by: "帰着希望日時",
@@ -24,7 +24,7 @@ function syncPageBookmarks() {
   const available = {
     "work-area": true,
     "proposal-panel": Boolean(state.proposal),
-    "email-panel": Boolean(state.proposal?.selectedPlanId),
+    "email-panel": Boolean(state.proposal?.selectedPlanId) || activePage === "email-panel",
   };
   const buttons = [...document.querySelectorAll(".page-bookmark")];
   for (const button of buttons) {
@@ -47,22 +47,17 @@ function setActivePage(pageId) {
   if (!pageOrder.includes(pageId)) pageId = "work-area";
   activePage = pageId;
   const onConsultation = pageId === "work-area";
-  const projectStart = byId("project-start");
-  const projectOverview = byId("project-overview");
   const workArea = byId("work-area");
   const proposalPanel = byId("proposal-panel");
   const emailPanel = byId("email-panel");
-  if (projectStart) projectStart.hidden = !onConsultation;
-  if (projectOverview) projectOverview.hidden = !onConsultation || !state.project;
   if (workArea) workArea.hidden = !onConsultation;
   if (proposalPanel) proposalPanel.hidden = pageId !== "proposal-panel" || !state.proposal;
-  if (emailPanel) emailPanel.hidden = pageId !== "email-panel" || !state.project || !state.proposal?.selectedPlanId;
+  if (emailPanel) emailPanel.hidden = pageId !== "email-panel";
   syncPageBookmarks();
 }
 
 function openPage(pageId) {
   if (pageId === "proposal-panel" && !state.proposal) return;
-  if (pageId === "email-panel" && !state.proposal?.selectedPlanId) return;
   const target = byId(pageId);
   // A page is intentionally hidden while another page is active. Do not use
   // the current `hidden` state as an availability check, otherwise the
@@ -79,7 +74,7 @@ byId("previous-page").addEventListener("click", () => {
   const currentIndex = pageOrder.indexOf(activePage);
   for (let index = currentIndex - 1; index >= 0; index -= 1) {
     const target = pageOrder[index];
-    if ((target === "work-area") || (target === "proposal-panel" && state.proposal) || (target === "email-panel" && state.proposal?.selectedPlanId)) {
+    if ((target === "work-area") || (target === "proposal-panel" && state.proposal) || (target === "email-panel" && (state.proposal?.selectedPlanId || activePage === "email-panel"))) {
       openPage(target);
       return;
     }
@@ -89,7 +84,7 @@ byId("next-page").addEventListener("click", () => {
   const currentIndex = pageOrder.indexOf(activePage);
   for (let index = currentIndex + 1; index < pageOrder.length; index += 1) {
     const target = pageOrder[index];
-    if ((target === "work-area") || (target === "proposal-panel" && state.proposal) || (target === "email-panel" && state.proposal?.selectedPlanId)) {
+    if ((target === "work-area") || (target === "proposal-panel" && state.proposal) || (target === "email-panel" && (state.proposal?.selectedPlanId || activePage === "email-panel"))) {
       openPage(target);
       return;
     }
@@ -115,6 +110,22 @@ syncPageBookmarks();
 function authHeaders(extra = {}) {
   const token = sessionStorage.getItem("team-access-token");
   return {...extra, ...(token ? {Authorization: `Bearer ${token}`} : {})};
+}
+
+async function refreshAssistantStatus() {
+  const status = byId("assistant-status");
+  try {
+    const result = await api("/api/agent/status");
+    status.textContent = result.model_configured
+      ? "AI接続設定済み・接続は質問時に確認"
+      : "AI API未設定・管理者の設定が必要です";
+    status.classList.toggle("is-unavailable", !result.model_configured);
+  } catch (error) {
+    if (error.code !== "unauthorized") {
+      status.textContent = "AI接続状態を確認できません";
+      status.classList.add("is-unavailable");
+    }
+  }
 }
 
 function showAccessGate() {
@@ -151,11 +162,25 @@ async function deleteApi(path) {
   return value;
 }
 
-function setProjectMessage(message, isError = false) {
-  const box = byId("project-message");
-  box.textContent = message;
-  box.classList.toggle("is-error", isError);
-  box.hidden = !message;
+async function loadUploadedDocuments() {
+  try {
+    const records = await api("/api/snapshots");
+    const storedUploads = records
+      .filter(record => /^upload_[0-9a-f]{32}$/.test(record.document_id))
+      .map(record => ({document_id: record.document_id, snapshot_id: record.snapshot_id, title: record.title, content: ""}));
+    const current = new Map(state.uploads.map(item => [item.snapshot_id, item]));
+    for (const item of storedUploads) if (!current.has(item.snapshot_id)) current.set(item.snapshot_id, item);
+    state.uploads = [...current.values()];
+    renderUploadList();
+    updateComposerActions();
+  } catch (error) {
+    if (error.code !== "unauthorized") {
+      const status = byId("chat-upload-state");
+      status.textContent = "保存済み資料一覧を読み込めませんでした。";
+      status.hidden = false;
+      status.classList.add("is-error");
+    }
+  }
 }
 
 function clearProposal() {
@@ -221,21 +246,44 @@ async function removeUpload(upload) {
 
 function updateComposerActions() {
   const busy = Boolean(state.activeAction || state.uploading || state.mailBusy);
-  const hasContext = Boolean(state.project || state.uploads.length);
-  const send = byId("send-chat");
   const create = byId("create-proposal");
-  const email = byId("generate-email");
-  send.disabled = busy || !hasContext || !byId("chat-input").value.trim();
-  create.disabled = busy || !state.project;
-  email.disabled = busy || !state.proposal?.selectedPlanId;
-  send.textContent = state.activeAction === "chat" ? "回答を作成中…" : "会話で相談 ↗";
+  create.disabled = busy;
   create.textContent = state.activeAction === "proposal" ? "計画書を作成中…" : "計画書を作成 →";
   byId("chat-input").disabled = busy;
+  document.querySelectorAll(".trip-condition-input").forEach(input => { input.disabled = busy; });
   byId("chat-file").disabled = busy;
-  byId("project-select").disabled = busy;
+  byId("proposal-followup-submit").disabled = busy;
+  byId("chat-fallback-open").disabled = busy;
+  byId("proposal-fallback-open").disabled = busy;
+  byId("proposal-followup-submit").textContent = state.activeAction === "chat"
+    ? "AIに相談しています…" : "AIに相談して計画書を更新";
   byId("create-email-draft").disabled = busy;
   byId("email-recipient").disabled = busy;
   byId("email-purpose").disabled = busy;
+}
+
+function collectTripConditions() {
+  const read = id => byId(id).value.trim();
+  const conditions = {};
+  const textFields = [
+    ["origin", "trip-origin-input"], ["destination", "trip-destination-input"],
+    ["purpose", "trip-purpose-input"], ["arrival_deadline", "trip-arrival-deadline-input"],
+  ];
+  for (const [key, id] of textFields) {
+    const value = read(id);
+    if (value) conditions[key] = value;
+  }
+  for (const [key, id] of [["departure_at", "trip-departure-input"], ["arrive_by", "trip-arrive-input"], ["return_by", "trip-return-input"]]) {
+    const value = read(id);
+    if (value) conditions[key] = `${value}:00+09:00`;
+  }
+  const lodging = read("trip-lodging-input");
+  if (lodging) conditions.lodging_required = lodging === "true";
+  const budget = read("trip-budget-input");
+  if (budget) conditions.budget_jpy = Number(budget);
+  const duration = read("trip-duration-input");
+  if (duration) conditions.duration_limit_days = Number(duration);
+  return conditions;
 }
 
 function appendUserMessage(message, author = "あなた") {
@@ -250,7 +298,7 @@ function askFollowUpQuestions(missing) {
   const questions = [
     ...missing.map(item => `${item}を教えてください。`),
     "交通費・宿泊費・日当のうち、予算上限に含めたい費用を教えてください。",
-    "出張の起点として、会社本店とプロジェクトの出発地のどちらを希望しますか？",
+    "出張の起点として、会社の所在地とご希望の出発地のどちらを使いますか？",
     "今回の出張に適用する旅費規程をご存じですか？",
   ];
   const newQuestions = questions.filter(question => !state.followUpAsked.includes(question));
@@ -259,7 +307,7 @@ function askFollowUpQuestions(missing) {
   const answer = [
     "計画書の作成に必要な条件が未確認です。分かる範囲で次の点を教えてください。",
     ...newQuestions.map(question => `・${question}`),
-    "回答を入力して「会話で相談」を押すと、AI が内容を確認します。その後「計画書を作成」を押すと反映します。",
+    "入力した内容を確認し、「計画書を作成」を押すと反映できます。",
   ].join("\n");
   state.chatMessages.push({role: "assistant", content: answer});
   const messages = byId("chat-messages");
@@ -351,52 +399,6 @@ function displayTokyoDateTime(value) {
   }).format(new Date(value));
 }
 
-function renderProject(project) {
-  state.project = project;
-  byId("project-overview").hidden = false;
-  byId("project-title").textContent = project.project_name;
-  byId("project-document-count").textContent = `関連資料 ${project.documents.length} 件`;
-  const fields = byId("project-fields");
-  fields.replaceChildren();
-  for (const [key, label] of Object.entries(fieldLabels)) {
-    const value = project.fields[key];
-    if (value === undefined) continue;
-    const row = node("div", undefined, "project-field");
-    row.append(node("dt", label), node("dd", displayFieldValue(key, value)));
-    fields.append(row);
-  }
-
-  const documents = byId("project-documents");
-  documents.replaceChildren();
-  for (const source of project.documents) {
-    const card = node("details", undefined, "project-document");
-    const summary = node("summary");
-    summary.append(
-      node("span", source.document_kind === "policy" ? "制度" : "プロジェクト", "source-kind"),
-      node("strong", source.title),
-    );
-    card.append(summary, node("pre", source.content, "source-preview"));
-    documents.append(card);
-  }
-  byId("assistant-status").textContent = "";
-  updateComposerActions();
-  syncPageBookmarks();
-  state.proposal = null;
-  byId("proposal-panel").hidden = true;
-}
-
-async function loadProjects() {
-  try {
-    state.projects = await api("/api/projects");
-    const select = byId("project-select");
-    select.replaceChildren(new Option("出張プロジェクトを選択してください", ""));
-    for (const project of state.projects) select.add(new Option(project.project_name, project.project_id));
-    setProjectMessage(state.projects.length ? "" : "登録済みプロジェクトはありません。");
-  } catch (error) {
-    if (error.code !== "unauthorized") setProjectMessage(error.message || String(error), true);
-  }
-}
-
 function renderAssistantMessage(answer, citations = []) {
   const card = node("article", undefined, "chat-message assistant-message");
   card.append(node("span", "旅程 AI", "message-author"), node("p", answer));
@@ -415,26 +417,8 @@ function renderAssistantMessage(answer, citations = []) {
   return card;
 }
 
-function projectContext() {
-  const sections = [];
-  if (state.project) {
-    sections.push(`選択プロジェクト：${state.project.project_name}`);
-    for (const [key, value] of Object.entries(state.project.fields)) {
-      sections.push(`${fieldLabels[key] || key}：${displayFieldValue(key, value)}`);
-    }
-    for (const document of state.project.documents) {
-      sections.push(`\n資料：${document.title}\n${document.content}`);
-    }
-  }
-  for (const upload of state.uploads) sections.push(`\n今回追加した資料：${upload.title}\n${upload.content}`);
-  return sections.join("\n").slice(0, 12000);
-}
-
-function projectContextFields() {
-  const fields = state.project ? {...state.project.fields} : {};
-  fields.project_id = state.project?.project_id || null;
-  fields.project_name = state.project?.project_name || null;
-  return fields;
+function uploadedDocumentContext() {
+  return state.uploads.map(upload => `資料：${upload.title}\n${upload.content}`).join("\n\n").slice(0, 12000);
 }
 
 async function importFile(file) {
@@ -461,30 +445,9 @@ async function importFile(file) {
   return result;
 }
 
-byId("project-select").addEventListener("change", event => {
-  const project = state.projects.find(item => item.project_id === event.target.value);
-  setProjectMessage("");
-  state.chatMessages = [];
-  state.uploads = [];
-  state.followUpAsked = [];
-  byId("chat-upload-state").textContent = "";
-  byId("chat-upload-state").hidden = true;
-  renderUploadList();
-  clearProposal();
-  byId("chat-messages").replaceChildren(renderAssistantMessage(project
-    ? `${project.project_name} の登録資料を参照します。`
-    : "選択したプロジェクト資料と追加資料をもとに、出張条件を整理します。"));
-  if (project) renderProject(project);
-  else {
-    state.project = null;
-    byId("project-overview").hidden = true;
-    updateComposerActions();
-    syncPageBookmarks();
-    byId("assistant-status").textContent = "プロジェクトを選択してください";
-  }
-});
-
 byId("chat-input").addEventListener("input", updateComposerActions);
+document.querySelectorAll(".trip-condition-input").forEach(input => input.addEventListener("input", updateComposerActions));
+byId("trip-lodging-input").addEventListener("change", updateComposerActions);
 
 byId("chat-file").addEventListener("change", async event => {
   const files = [...event.target.files];
@@ -516,6 +479,9 @@ byId("chat-form").addEventListener("submit", async event => {
   const message = byId("chat-input").value.trim();
   if (!message) return;
   const history = state.chatMessages.slice(-12);
+  state.proposalFollowupAnswer = "";
+  state.manualFallbackFields = null;
+  byId("chat-fallback").hidden = true;
   clearProposal();
   state.chatMessages.push({role: "user", content: message});
   appendUserMessage(message);
@@ -531,16 +497,16 @@ byId("chat-form").addEventListener("submit", async event => {
     const result = await api("/api/agent/chat", {
       message,
       history,
-      trip_context: projectContextFields(),
-      project_context: projectContext(),
-      project_id: state.project?.project_id || null,
+      trip_context: collectTripConditions(),
       document_ids: state.uploads.map(upload => upload.document_id),
     });
     pending.replaceWith(renderAssistantMessage(result.answer || "回答を作成できませんでした。", result.citations || []));
     state.chatMessages.push({role: "assistant", content: result.answer || ""});
+    byId("chat-fallback").hidden = result.status === "success";
   } catch (error) {
     pending.replaceWith(renderAssistantMessage(error.message || String(error)));
     state.chatMessages.push({role: "assistant", content: error.message || String(error)});
+    byId("chat-fallback").hidden = false;
   } finally {
     state.activeAction = null;
     updateComposerActions();
@@ -555,9 +521,8 @@ function valueOrUnknown(value, key) {
 }
 
 async function buildProposal() {
-  if (!state.project) throw new Error("先に出張プロジェクトを選択してください。");
   const userNotes = state.chatMessages.filter(message => message.role === "user").map(message => message.content);
-  const fields = {...state.project.fields};
+  const fields = {};
   if (userNotes.length) {
     try {
       const baseTime = tokyoIso();
@@ -575,6 +540,8 @@ async function buildProposal() {
       throw new Error(`入力した条件を確認できませんでした。通信状態を確認して、もう一度お試しください。${error.message ? `（${error.message}）` : ""}`);
     }
   }
+  Object.assign(fields, collectTripConditions());
+  if (state.manualFallbackFields) Object.assign(fields, state.manualFallbackFields);
   const missing = [];
   const hasValue = value => value !== undefined && value !== null && value !== "" && value !== "未確認";
   for (const [key, label] of [
@@ -584,13 +551,33 @@ async function buildProposal() {
     if (!hasValue(fields[key])) missing.push(label);
   }
   if (typeof fields.lodging_required !== "boolean") missing.push("宿泊の要否");
-  const policyDocument = state.project.documents.find(document => document.document_kind === "policy");
-  const policyExcerpt = policyDocument
-    ? policyDocument.content
-    : "出張旅費規程の資料が登録されていないため、交通費・宿泊費・日当の取扱いは未確認です。";
   const route = `${valueOrUnknown(fields.origin, "origin")} → ${valueOrUnknown(fields.destination, "destination")}`;
   const budget = fields.budget_jpy === undefined ? "未設定" : valueOrUnknown(fields.budget_jpy, "budget_jpy");
   const simulation = simulationScenario(fields);
+  const uploadedIds = [...new Set(state.uploads.map(item => item.document_id))];
+  const uploadedSnapshots = [...new Set(state.uploads.map(item => item.snapshot_id).filter(Boolean))];
+  let policyEvidence = [];
+  let policyEvidenceError = "";
+  if (uploadedIds.length && uploadedSnapshots.length) {
+    try {
+      const search = await api("/api/search", {
+        company_id: null,
+        document_ids: uploadedIds,
+        snapshot_ids: uploadedSnapshots,
+        usage_mode: "demo",
+        query: `${fields.purpose || "出張"} 旅費 規程 制度 条件 上限 申請 承認 交通費 宿泊費 キャンセル 変更`,
+        limit: 8,
+      });
+      policyEvidence = (search.results || []).map(hit => ({
+        title: hit.title,
+        article_label: hit.chunk?.article_label || "",
+        locations: hit.chunk?.locations || [],
+        text: hit.chunk?.text || "",
+      })).filter(item => item.text);
+    } catch (error) {
+      policyEvidenceError = error.message || String(error);
+    }
+  }
   let simulationResult = null;
   let simulationError = "";
   try {
@@ -607,7 +594,7 @@ async function buildProposal() {
   }
   let workflowResult = null;
   let workflowError = "";
-  const selectedDocuments = [...state.project.documents, ...state.uploads];
+  const selectedDocuments = [...state.uploads];
   try {
     workflowResult = await api("/api/run", {
       trip: simulation.trip,
@@ -640,7 +627,7 @@ async function buildProposal() {
         ...result.issues.slice(0, 4).map(issue => `- 要確認：${issue}`),
       ];
     }),
-    `- 規程検索：${policyStatusLabels[workflowResult.policy?.status] || (workflowResult.policy ? "検索結果を確認してください" : "対象となる登録済み規程資料がありません")}`,
+    `- 規程検索：${policyStatusLabels[workflowResult.policy?.status] || (workflowResult.policy ? "検索結果を確認してください" : "利用者が追加した制度資料がありません")}`,
     `- 規程の根拠候補：${workflowResult.policy?.evidence?.length || 0} 件。規程適合は自動判定していません。`,
     "有効な実見積りがないため、費用・時間の順位は作成していません。",
   ] : [
@@ -682,15 +669,40 @@ async function buildProposal() {
   ] : [];
   const weatherAlertLines = severeWeather.map(item =>
     `! 天候注意：${item.date} の${item.destination}は${item.condition}の模擬判定です。${item.advice}`);
+  const policySupplementLines = policyEvidence.length
+    ? [
+      "",
+      "## 添付資料から検索した制度の原文",
+      "",
+      "以下は利用者が追加した資料をテキストブロック単位で検索して得た原文抜粋です。要約、適用可否の判断、記載されていない条件の補足はしていません。",
+      ...policyEvidence.flatMap((item, index) => [
+        "",
+        `### 根拠 ${index + 1}：${item.title}`,
+        ...(item.article_label ? [`条項表示：${item.article_label}`] : []),
+        ...item.locations.map(location => `資料位置：${[location.page_number ? `p.${location.page_number}` : "", `ブロック ${location.block_index}`, location.locator].filter(Boolean).join(" / ")}`),
+        "原文抜粋：",
+        ...item.text.split(/\r?\n/).map(line => `> ${line}`),
+      ]),
+    ]
+    : [
+      "",
+      "## 添付資料から検索した制度の原文",
+      "",
+      uploadedIds.length
+        ? `資料の条項検索を完了できませんでした：${policyEvidenceError || "検索結果に該当箇所がありませんでした。"} 制度を推測して補っていません。`
+        : "利用者から資料が追加されていないため、制度の補足は作成していません。資料を追加して計画書を作り直すと、該当する原文抜粋を表示します。",
+    ];
   const lines = [
-    `# ${state.project.project_name} 出張計画書`,
+    "# 出張計画書",
     "",
     `作成日：${new Date().toLocaleDateString("ja-JP")}`,
     "",
     "## 出張概要",
     "",
-    `- 対象プロジェクト：${state.project.project_name}`,
+    "- 対象：今回の出張",
     `- 出張目的：${valueOrUnknown(fields.purpose, "purpose")}`,
+    `- 出発地：${valueOrUnknown(fields.origin, "origin")}`,
+    `- 目的地：${valueOrUnknown(fields.destination, "destination")}`,
     `- 行程：${route}`,
     `- 出張期間：${valueOrUnknown(fields.duration_limit_days, "duration_limit_days")}`,
     `- 到着希望時刻：${valueOrUnknown(fields.arrival_deadline, "arrival_deadline")}`,
@@ -700,9 +712,13 @@ async function buildProposal() {
     `- 宿泊：${valueOrUnknown(fields.lodging_required, "lodging_required")}`,
     `- 予算上限：${budget}`,
     "",
-    "## 登録済みの出張旅費規程",
+    "## 行程案と費用",
     "",
-    ...policyExcerpt.split(/\r?\n/),
+    "### ローカル模擬データによる比較",
+    "",
+    ...simulationLines,
+    "この比較は固定の模擬値であり、実際の運行・見積り結果ではありません。空席・予約可否・実運賃は未確認です。日当など金額が確認できない費目は模擬小計に含めていません。",
+    "宿泊が必要な場合に表示する施設名・位置・料金は架空の模擬値です。実在施設の案内や予約には使えません。",
     "",
     "## サーバー側の確認結果",
     "",
@@ -716,21 +732,15 @@ async function buildProposal() {
     "",
     ...missingLines,
     "",
-    "## 行程案と費用",
-    "",
-    "### ローカル模擬データによる比較",
-    "",
-    ...simulationLines,
-    "この比較は固定の模擬値であり、実際の運行・見積り結果ではありません。空席・予約可否・実運賃は未確認です。日当など金額が確認できない費目は模擬小計に含めていません。",
-    "宿泊が必要な場合に表示する施設名・位置・料金は架空の模擬値です。実在施設の案内や予約には使えません。",
-    "",
     `${route} の出張を計画します。登録期間は ${valueOrUnknown(fields.duration_limit_days, "duration_limit_days")} です。実際の運行情報に基づく行程は未取得です。上記の模擬時刻と、実際の出張条件を分けて確認してください。`,
     `予算上限は ${budget} です。実際の交通費見積りを取得していないため、実費に基づく予算内判定と総額は未確認です。模擬小計と実際の費用は区別してください。`,
     "宿泊が必要な場合は、規程記載額と実際の宿泊費を照合し、差額の取扱いを承認者に確認してください。",
     "",
+    ...policySupplementLines,
+    "",
   ];
-  return {markdown: lines.join("\n"), fields, missing, policyDocument, userNotes, travelContext,
-    simulationResult, selectedPlanId: null};
+  return {markdown: lines.join("\n"), fields, missing, userNotes, travelContext,
+    simulationResult, policyEvidence, selectedPlanId: null};
 }
 
 function renderProposal(proposal) {
@@ -777,6 +787,14 @@ function renderProposal(proposal) {
     }
     if (line.startsWith("## ")) {
       sectionName = line.slice(3).trim();
+      if (sectionName === "添付資料から検索した制度の原文") {
+        section = null;
+        facts = null;
+        options = null;
+        activeOption = null;
+        list = null;
+        continue;
+      }
     section = node("section", undefined, `proposal-section ${sectionName === "行程案と費用" ? "proposal-travel-section" : ""}`.trim());
       section.append(node("h3", sectionName, "proposal-section-title"));
       content.append(section);
@@ -787,6 +805,7 @@ function renderProposal(proposal) {
       list = null;
       continue;
     }
+    if (sectionName === "添付資料から検索した制度の原文") continue;
     if (line.startsWith("### ")) {
       activeOption = null;
       list = null;
@@ -873,15 +892,37 @@ function renderProposal(proposal) {
       section.append(node("p", line.trim(), "proposal-copy"));
     }
   }
+  if (proposal.policyEvidence?.length) {
+    const sourceSection = node("section", undefined, "proposal-section policy-evidence-section");
+    sourceSection.append(node("h3", "添付資料から検索した制度の原文", "proposal-section-title"));
+    sourceSection.append(node("p", "利用者が追加した資料をブロック単位で検索した原文抜粋です。制度の要約や適用可否の判断は行っていません。", "proposal-copy"));
+    for (const [index, evidence] of proposal.policyEvidence.entries()) {
+      const card = node("article", undefined, "policy-evidence-card");
+      card.append(node("h4", `根拠 ${index + 1}：${evidence.title}`, "policy-evidence-title"));
+      if (evidence.article_label) card.append(node("p", `条項表示：${evidence.article_label}`, "policy-evidence-location"));
+      for (const location of evidence.locations) {
+        const position = [location.page_number ? `p.${location.page_number}` : "", `ブロック ${location.block_index}`, location.locator].filter(Boolean).join(" / ");
+        if (position) card.append(node("p", `資料位置：${position}`, "policy-evidence-location"));
+      }
+      const excerpt = node("blockquote", evidence.text, "policy-evidence-quote");
+      card.append(excerpt);
+      sourceSection.append(card);
+    }
+    content.append(sourceSection);
+  }
   const followup = byId("proposal-followup");
   if (followup) {
-    followup.hidden = !proposal.missing.length;
+    followup.hidden = !proposal.missing.length && !state.proposalFollowupAnswer;
     byId("proposal-followup-missing").textContent = proposal.missing.length
       ? `未確認：${proposal.missing.join("、")}` : "追加確認はありません。";
+    const answer = byId("proposal-followup-answer");
+    answer.hidden = !state.proposalFollowupAnswer;
+    byId("proposal-followup-answer-text").textContent = state.proposalFollowupAnswer;
   }
   byId("proposal-panel").hidden = false;
   setActivePage("proposal-panel");
-  byId("proposal-panel").scrollIntoView({behavior: "smooth", block: "start"});
+  const followupTarget = proposal.missing.length ? byId("proposal-followup") : byId("proposal-panel");
+  followupTarget.scrollIntoView({behavior: "smooth", block: "start"});
 }
 
 function selectProposalOption(proposal, planId) {
@@ -911,17 +952,14 @@ function downloadText(content, filename) {
 }
 
 function openProposalConfirmation() {
-  const knownConditions = Object.entries(state.project.fields)
-    .filter(([key]) => fieldLabels[key] && key !== "project_name")
-    .map(([key, value]) => `${fieldLabels[key]}：${displayFieldValue(key, value)}`);
   const draftNote = byId("chat-input").value.trim();
   const userConditions = [
     ...state.chatMessages.filter(message => message.role === "user").map(message => message.content),
     ...(draftNote ? [draftNote] : []),
   ];
   const confirmation = [
-    `対象プロジェクト：${state.project.project_name}`,
-    ...knownConditions,
+    "対象：今回の出張",
+    ...Object.entries(collectTripConditions()).map(([key, value]) => `${fieldLabels[key] || key}：${displayFieldValue(key, value)}`),
     ...(userConditions.length ? ["会話で伝えた条件：", ...userConditions.map(value => `・${value}`)] : []),
   ].join("\n");
   byId("proposal-confirm-content").textContent = confirmation;
@@ -930,8 +968,10 @@ function openProposalConfirmation() {
   else if (window.confirm(`${confirmation}\n\nこの条件で計画書を作成しますか？`)) generateProposal();
 }
 
-async function generateProposal() {
-  if (state.activeAction || state.uploading || !state.project) return;
+async function generateProposal({preserveFollowupAnswer = false, preserveManualFallback = false} = {}) {
+  if (state.activeAction || state.uploading) return;
+  if (!preserveFollowupAnswer) state.proposalFollowupAnswer = "";
+  if (!preserveManualFallback) state.manualFallbackFields = null;
   const draftNote = byId("chat-input").value.trim();
   clearProposal();
   if (draftNote) {
@@ -946,7 +986,10 @@ async function generateProposal() {
     state.proposal = proposal;
     renderProposal(state.proposal);
   } catch (error) {
-    setProjectMessage(error.message || String(error), true);
+    const status = byId("chat-upload-state");
+    status.textContent = error.message || String(error);
+    status.hidden = false;
+    status.classList.add("is-error");
   } finally {
     state.activeAction = null;
     updateComposerActions();
@@ -959,21 +1002,136 @@ byId("confirm-proposal").addEventListener("click", () => {
   byId("proposal-confirm-dialog").close("confirm");
   generateProposal();
 });
-byId("proposal-followup-submit").addEventListener("click", () => {
+async function askProposalFollowup(message) {
+  const history = state.chatMessages.slice(-12);
+  state.chatMessages.push({role: "user", content: message});
+  appendUserMessage(message, "計画書への追加条件");
+  const answerBox = byId("proposal-followup-answer");
+  const answerText = byId("proposal-followup-answer-text");
+  answerBox.hidden = false;
+  answerText.textContent = "OrcaRouter に相談しています…";
+  state.activeAction = "chat";
+  updateComposerActions();
+  try {
+    const result = await api("/api/agent/chat", {
+      message,
+      history,
+      trip_context: {...collectTripConditions(), ...(state.proposal?.fields || {})},
+      document_ids: state.uploads.map(upload => upload.document_id),
+    });
+    state.proposalFollowupAnswer = result.answer || "回答を作成できませんでした。";
+    const succeeded = result.status === "success";
+    byId("proposal-fallback").hidden = succeeded;
+    return succeeded;
+  } catch (error) {
+    state.proposalFollowupAnswer = error.message || String(error);
+    byId("proposal-fallback").hidden = false;
+    return false;
+  } finally {
+    state.chatMessages.push({role: "assistant", content: state.proposalFollowupAnswer});
+    const messages = byId("chat-messages");
+    messages.append(renderAssistantMessage(state.proposalFollowupAnswer));
+    answerText.textContent = state.proposalFollowupAnswer;
+    answerBox.hidden = false;
+    state.activeAction = null;
+    updateComposerActions();
+  }
+}
+
+byId("proposal-followup-submit").addEventListener("click", async () => {
   const input = byId("proposal-followup-input");
   const value = input.value.trim();
   if (!value || state.activeAction || state.uploading) return;
-  byId("chat-input").value = value;
   input.value = "";
-  generateProposal();
+  state.manualFallbackFields = null;
+  if (await askProposalFollowup(value)) await generateProposal({preserveFollowupAnswer: true});
+});
+
+function setManualDateTime(dateId, timeId, value) {
+  const match = typeof value === "string" && value.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+  byId(dateId).value = match ? match[1] : "";
+  byId(timeId).value = match ? match[2] : "";
+}
+
+function openManualFallback(source) {
+  state.manualFallbackSource = source;
+  const fields = source === "proposal" ? (state.proposal?.fields || {}) : (state.manualFallbackFields || {});
+  byId("manual-origin").value = fields.origin || "";
+  byId("manual-destination").value = fields.destination || "";
+  byId("manual-purpose").value = fields.purpose || "";
+  setManualDateTime("manual-departure-date", "manual-departure-time", fields.departure_at);
+  setManualDateTime("manual-arrive-date", "manual-arrive-time", fields.arrive_by);
+  setManualDateTime("manual-return-date", "manual-return-time", fields.return_by);
+  byId("manual-lodging").value = typeof fields.lodging_required === "boolean" ? String(fields.lodging_required) : "";
+  byId("manual-budget").value = Number.isInteger(fields.budget_jpy) ? String(fields.budget_jpy) : "";
+  byId("manual-notes").value = state.chatMessages
+    .filter(message => message.role === "user")
+    .slice(-4)
+    .map(message => message.content)
+    .join("\n")
+    .slice(0, 2000);
+  byId("manual-fallback-error").hidden = true;
+  byId("manual-fallback-error").textContent = "";
+  byId("manual-fallback-submit").textContent = source === "proposal"
+    ? "入力内容で計画書を更新" : "入力内容で計画書を作成";
+  byId("manual-fallback-dialog").showModal();
+}
+
+byId("chat-fallback-open").addEventListener("click", () => openManualFallback("conversation"));
+byId("proposal-fallback-open").addEventListener("click", () => openManualFallback("proposal"));
+byId("manual-fallback-cancel").addEventListener("click", () => byId("manual-fallback-dialog").close("cancel"));
+byId("manual-fallback-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  if (state.activeAction || state.uploading) return;
+  const value = id => byId(id).value.trim();
+  const dateTime = (dateId, timeId) => value(dateId) && value(timeId)
+    ? `${value(dateId)}T${value(timeId)}:00+09:00` : "";
+  const fields = {};
+  for (const [key, id] of [["origin", "manual-origin"], ["destination", "manual-destination"], ["purpose", "manual-purpose"]]) {
+    const fieldValue = value(id);
+    if (fieldValue) fields[key] = fieldValue;
+  }
+  for (const [key, dateId, timeId] of [["departure_at", "manual-departure-date", "manual-departure-time"], ["arrive_by", "manual-arrive-date", "manual-arrive-time"], ["return_by", "manual-return-date", "manual-return-time"]]) {
+    const fieldValue = dateTime(dateId, timeId);
+    if (fieldValue) fields[key] = fieldValue;
+  }
+  if (value("manual-lodging")) fields.lodging_required = value("manual-lodging") === "true";
+  const budget = value("manual-budget");
+  if (budget) fields.budget_jpy = Number(budget);
+  const departure = fields.departure_at ? Date.parse(fields.departure_at) : null;
+  const arrival = fields.arrive_by ? Date.parse(fields.arrive_by) : null;
+  const returnBy = fields.return_by ? Date.parse(fields.return_by) : null;
+  if (departure !== null && arrival !== null && arrival < departure
+      || departure !== null && returnBy !== null && returnBy <= departure
+      || arrival !== null && returnBy !== null && arrival > returnBy) {
+    const error = byId("manual-fallback-error");
+    error.textContent = "日時の順序を確認してください。出発後に到着し、到着後に帰着する日時を入力してください。";
+    error.hidden = false;
+    return;
+  }
+  state.manualFallbackFields = fields;
+  const notes = value("manual-notes");
+  const summary = [
+    ...(fields.origin ? [`出発地：${fields.origin}`] : []),
+    ...(fields.destination ? [`目的地：${fields.destination}`] : []),
+    ...(fields.purpose ? [`出張目的：${fields.purpose}`] : []),
+    ...(fields.departure_at ? [`希望出発日時：${fields.departure_at}`] : []),
+    ...(fields.arrive_by ? [`到着希望日時：${fields.arrive_by}`] : []),
+    ...(fields.return_by ? [`希望帰着日時：${fields.return_by}`] : []),
+    ...(typeof fields.lodging_required === "boolean" ? [`宿泊：${fields.lodging_required ? "必要" : "不要"}`] : []),
+    ...(budget ? [`予算上限：${budget}円`] : []), ...(notes ? [`追加条件：${notes}`] : []),
+  ].join("\n") || "未入力の出張条件をあとから追加します。";
+  state.chatMessages.push({role: "user", content: `手入力テンプレートの出張条件\n${summary}`});
+  appendUserMessage(summary, "手入力テンプレート");
+  byId("manual-fallback-dialog").close("submit");
+  await generateProposal({preserveFollowupAnswer: state.manualFallbackSource === "proposal", preserveManualFallback: true});
 });
 
 byId("download-proposal").addEventListener("click", () => {
-  if (state.proposal) downloadText(state.proposal.markdown, `${state.project.project_name}_出張計画書.md`);
+  if (state.proposal) downloadText(state.proposal.markdown, "出張計画書.md");
 });
 
 byId("generate-email").addEventListener("click", () => {
-  if (!state.proposal?.selectedPlanId) return;
   byId("email-panel").hidden = false;
   syncPageBookmarks();
   setActivePage("email-panel");
@@ -981,8 +1139,8 @@ byId("generate-email").addEventListener("click", () => {
   byId("email-recipient").focus({preventScroll: true});
 });
 
-function manualEmailTemplate(projectName, recipient, purpose) {
-  const name = projectName || "出張プロジェクト";
+function manualEmailTemplate(planTitle, recipient, purpose) {
+  const name = planTitle || "出張計画";
   return {
     subject: `【出張計画のご確認】${name}`,
     body: `${recipient || "{{宛名}}"} 様\n\nお疲れさまです。\n${name}に関する出張について、${purpose || "下記の内容"}をご確認いただきたく、ご連絡しました。\n\n【出張目的】\n（目的を入力してください）\n\n【行程・費用】\n（計画書を確認して内容を入力してください）\n\n【確認・ご対応いただきたいこと】\n（確認事項や希望期限を入力してください）\n\nお手数をおかけしますが、よろしくお願いいたします。\n（差出人名）`,
@@ -1003,7 +1161,7 @@ function showEmailDraft(draft, message) {
 
 byId("email-form").addEventListener("submit", async event => {
   event.preventDefault();
-  if (state.mailBusy || state.activeAction || state.uploading || !state.project) return;
+  if (state.mailBusy || state.activeAction || state.uploading) return;
   const recipient = byId("email-recipient").value.trim();
   const purpose = byId("email-purpose").value.trim() || "出張計画の共有・確認依頼";
   const conversation = state.chatMessages.slice(-10)
@@ -1019,10 +1177,10 @@ byId("email-form").addEventListener("submit", async event => {
   updateComposerActions();
   try {
     const result = await api("/api/email/generate", {
-      project_name: state.project.project_name,
+      plan_title: "出張計画",
       recipient,
       purpose,
-      project_context: projectContext(),
+      document_context: uploadedDocumentContext(),
       plan_context: state.proposal
         ? `${state.proposal.markdown}\n\nユーザーが選択した案：${state.proposal.selectedPlanName || state.proposal.selectedPlanId}`
         : "",
@@ -1032,7 +1190,7 @@ byId("email-form").addEventListener("submit", async event => {
       ? "メール文を作成しました。内容を確認してご利用ください。"
       : "メール作成機能は現在メンテナンス中です。以下のテンプレートに入力してください。");
   } catch (_error) {
-    const fallback = manualEmailTemplate(state.project.project_name, recipient, purpose);
+    const fallback = manualEmailTemplate("出張計画", recipient, purpose);
     showEmailDraft(fallback, "メール作成機能は現在メンテナンス中です。以下のテンプレートに入力してください。");
   } finally {
     state.mailBusy = false;
@@ -1062,7 +1220,9 @@ byId("access-form").addEventListener("submit", async event => {
     sessionStorage.setItem("team-access-token", result.token);
     byId("access-gate").hidden = true;
     byId("access-password").value = "";
-    await loadProjects();
+    updateComposerActions();
+    refreshAssistantStatus();
+    loadUploadedDocuments();
   } catch (error) {
     byId("access-error").textContent = error.message || String(error);
     byId("access-error").hidden = false;
@@ -1071,5 +1231,6 @@ byId("access-form").addEventListener("submit", async event => {
   }
 });
 
-loadProjects();
 updateComposerActions();
+refreshAssistantStatus();
+loadUploadedDocuments();

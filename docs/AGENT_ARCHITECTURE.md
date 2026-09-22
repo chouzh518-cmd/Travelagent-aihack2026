@@ -3,7 +3,7 @@
 ## リクエストの流れ
 
 1. `app.py` がアクセス制御とリクエスト形式を検証します。
-2. `agents/rag_agent.py` が選択中プロジェクトと許可された資料範囲を確認します。
+2. `agents/rag_agent.py` が利用者の会話と今回指定された資料範囲を確認します。
 3. `policy_import/` が資料の抽出、OCR、索引、スナップショット、資料の紐付けを管理します。
 4. `rag/evidence_retriever.py` が検索結果を LlamaIndex の Retriever に渡します。
 5. OrcaRouter の API Key が設定されている場合、`llm/orcarouter.py` が OpenAI 互換インターフェースでモデルを呼び出します。
